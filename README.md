@@ -2,8 +2,7 @@
 
 A powerful web application for analyzing GPS telemetry JSON logs, visualizing device routes, and generating quality scorecards.
 
-![Dashboard](https://raw.githubusercontent.com/username/repo/main/docs/dashboard.png)
-*(Note: Replace with your actual screenshot URL or local path for internal use)*
+![Dashboard](https://raw.githubusercontent.com/alzuno/APIGatewayAnalyzer/main/docs/dashboard.png)
 
 ## Features
 
@@ -29,8 +28,8 @@ A powerful web application for analyzing GPS telemetry JSON logs, visualizing de
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/YOUR_USERNAME/gps-analyzer.git
-    cd gps-analyzer
+    git clone https://github.com/alzuno/APIGatewayAnalyzer.git
+    cd APIGatewayAnalyzer
     ```
 
 2.  Start with Docker Compose:
@@ -57,7 +56,7 @@ To run this application on a production server, you **do not** need the source c
     # If strictly using prod file
     docker-compose -f docker-compose.prod.yml up -d
     ```
-4.  The image will be pulled automatically from `ghcr.io/YOUR_USERNAME/gps-analyzer:latest`.
+4.  The image will be pulled automatically from `ghcr.io/alzuno/APIGatewayAnalyzer:latest`.
 
 ### GitHub Actions (CI/CD)
 This repository includes a workflow in `.github/workflows/publish.yml` that automatically builds and publishes the Docker image to **GitHub Container Registry (GHCR)** whenever you push to `main` or create a release tag (e.g., `v1.0`).
@@ -67,7 +66,7 @@ This repository includes a workflow in `.github/workflows/publish.yml` that auto
 ## 🛠️ Project Structure
 
 ```
-gps-analyzer/
+APIGatewayAnalyzer/
 ├── app.py                  # Main Flask Application
 ├── Dockerfile             # Docker build instruction
 ├── docker-compose.yml     # Local development config

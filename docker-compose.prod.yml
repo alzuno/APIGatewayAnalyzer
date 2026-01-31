@@ -1,15 +1,13 @@
 version: '3.8'
 
 services:
-  analyzer:
-    # Replace 'YOUR_USERNAME' with your GitHub username
-    image: ghcr.io/YOUR_USERNAME/gps-analyzer:latest
-    container_name: gps-analyzer
+  APIGatewayAnalyzer:
+    image: ghcr.io/alzuno/APIGatewayAnalyzer:latest
+    container_name: APIGatewayAnalyzer
     restart: always
     ports:
       - "8000:8000"
     volumes:
-      # Persistent storage mapped to host
       - ./data:/data
     environment:
       - DATA_DIR=/data

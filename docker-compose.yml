@@ -3,11 +3,9 @@ version: '3.8'
 services:
   analyzer:
     build: .
-    container_name: gps-analyzer
-    # Port mapping: Host:Container
+    container_name: APIGatewayAnalyzer
     ports:
       - "8000:8000"
-    # Persist data to local folder
     volumes:
       - ./data:/data
     restart: unless-stopped
