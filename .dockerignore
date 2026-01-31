@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+venv/
+.env
+.DS_Store
+# Ignore local data folders during build, as they are mounted
+uploads/
+processed/
+data/
+history.json

@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+venv/
+.env
+.DS_Store
+# Data directories (should not be in git)
+data/
+uploads/
+processed/
+jsonfiles/
+history.json
