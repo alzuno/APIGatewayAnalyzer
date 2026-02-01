@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-02-01
+### Added
+- **Forensic Sensor Validation**: Detects frozen RPM, static Temperature, and static Speed data.
+- **Event Mapping Fix**: Normalized raw event codes to human-readable labels, fixing the empty "GPS Event Breakdown" chart.
+- **Driver ID Integration**: `driverId` is now visible in both Scorecard and Statistics tables.
+- **Improved Scorecard Documentation**: Updated with details on forensic penalties.
+
 ## [2.0.0] - 2026-02-01
 ### Added
 - **Forensic Scorecard**: New scoring algorithm focusing on Odometer Integrity, CAN Bus completeness, and GPS quality.

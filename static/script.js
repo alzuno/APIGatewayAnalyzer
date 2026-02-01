@@ -558,6 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
         thead.innerHTML = `
             <tr>
                 <th>${t.th_imei}</th>
+                <th>${t.th_driver_id}</th>
                 <th>${t.th_score}</th>
                 <th>${t.th_total_reports}</th>
                 <th>${t.th_dist}</th>
@@ -566,18 +567,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>${t.th_harsh}</th>
                 <th>${t.th_ign_balance}</th>
                 <th>${t.th_canbus_comp}</th>
+                <th>${t.th_frozen_sensors}</th>
                 <th>${t.th_lat_lng_var}</th>
             </tr>
         `;
 
         if (rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10">No data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12">No data</td></tr>';
             return;
         }
 
         tbody.innerHTML = rows.map(row => `
             <tr>
                 <td>${row.imei}</td>
+                <td><span class="badge ${row.Driver_ID !== 'N/A' ? 'badge-success' : 'badge-warning'}">${row.Driver_ID}</span></td>
                 <td style="font-weight:bold; color:${row.Puntaje_Calidad > 80 ? '#10b981' : (row.Puntaje_Calidad > 60 ? '#f59e0b' : '#ef4444')}">${row.Puntaje_Calidad}</td>
                 <td>${row.Total_Reportes}</td>
                 <td>${row['Distancia_Recorrida_(KM)']?.toFixed(2)}</td>
@@ -586,6 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${row.Harsh_Events}</td>
                 <td style="color:${row.Ignition_Balance <= 1 ? '#10b981' : '#ef4444'}">${row.Ignition_Balance} (${row.Ignition_On}/${row.Ignition_Off})</td>
                 <td>${row.Canbus_Completeness}%</td>
+                <td><span class="badge ${row.Frozen_Sensors === 'None' ? 'badge-success' : 'badge-danger'}">${row.Frozen_Sensors}</span></td>
                 <td><span class="badge ${row.Lat_Lng_Correct_Variation === 'OK' ? 'badge-success' : 'badge-danger'}">${row.Lat_Lng_Correct_Variation}</span></td>
             </tr>
         `).join('');
@@ -599,6 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
         thead.innerHTML = `
             <tr>
                 <th>${t.th_imei}</th>
+                <th>${t.th_driver_id}</th>
                 <th>${t.th_first}</th>
                 <th>${t.th_last}</th>
                 <th>${t.th_avg_delay}</th>
@@ -617,13 +622,14 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         if (rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="15">No data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="16">No data</td></tr>';
             return;
         }
 
         tbody.innerHTML = rows.map(row => `
             <tr>
                 <td>${row.imei}</td>
+                <td>${row.Driver_ID}</td>
                 <td>${new Date(row.Primer_Reporte).toLocaleString()}</td>
                 <td>${new Date(row.Ultimo_Reporte).toLocaleString()}</td>
                 <td>${row.Delay_Avg}s</td>

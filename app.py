@@ -47,6 +47,52 @@ def sanitize_for_json(obj):
             return None
     return obj
 
+def normalize_event_type(raw_type):
+    """Map raw event types/codes to normalized strings expected by frontend."""
+    if not raw_type:
+        return None
+    
+    # Handle numeric types directly
+    if isinstance(raw_type, int):
+        mapping = {
+            6: 'Ignition On',
+            7: 'Ignition Off',
+            16: 'Harsh Breaking',
+            17: 'Harsh Acceleration',
+            18: 'Harsh Turn',
+            1: 'SOS'
+        }
+        return mapping.get(raw_type, str(raw_type))
+    
+    # Convert to lowercase for case-insensitive matching
+    raw_lower = str(raw_type).lower().strip()
+    
+    # Common mappings based on typical provider JSON
+    mapping = {
+        '6': 'Ignition On',
+        'ignition_on': 'Ignition On',
+        'ignitionon': 'Ignition On',
+        '7': 'Ignition Off',
+        'ignition_off': 'Ignition Off',
+        'ignitionoff': 'Ignition Off',
+        '16': 'Harsh Breaking',
+        'braking_harsh': 'Harsh Breaking',
+        'harsh_braking': 'Harsh Breaking',
+        'harshbraking': 'Harsh Breaking',
+        '17': 'Harsh Acceleration',
+        'acceleration_harsh': 'Harsh Acceleration',
+        'harsh_acceleration': 'Harsh Acceleration',
+        'harshacceleration': 'Harsh Acceleration',
+        '18': 'Harsh Turn',
+        'cornering_harsh': 'Harsh Turn',
+        'harsh_turn': 'Harsh Turn',
+        'harshturn': 'Harsh Turn',
+        'sos': 'SOS',
+        'panic': 'SOS',
+        '1': 'SOS'
+    }
+    return mapping.get(raw_lower, str(raw_type))
+
 def clean_df_for_json(df):
     """Convert a DataFrame to a list of dicts suitable for JSON serialization."""
     df_clean = df.copy()
@@ -138,7 +184,13 @@ def process_log_data(logs_data, filename):
                     'totalDistance': canbus.get('totalDistance'),
                     'totalFuelUsed': canbus.get('totalFuelUsed'),
                     'fuelLevelInput': canbus.get('fuelLevelInput'),
-                    'event_type': event.get('type'),
+                    'event_type': normalize_event_type(
+                        point.get('event', {}).get('type') or 
+                        point.get('alert', {}).get('type') or 
+                        point.get('type') or 
+                        point.get('eventId') or 
+                        addons.get('alert')
+                    ),
                     # Quality Indicators for Radar
                     'has_rpm': canbus.get('engineRPM') is not None,
                     'has_speed': canbus.get('vehicleSpeed') is not None,
@@ -202,18 +254,35 @@ def process_log_data(logs_data, filename):
         ign_balance = abs(ign_on - ign_off)
         ign_score = 100 if ign_balance <= 1 else max(0, 100 - (ign_balance * 10))
 
+        # --- FORENSIC INTELLIGENCE (V2.1) ---
+        # 6. Frozen Sensor Penalties
+        # RPM Frozen: If Ign On and Moving, but RPM is 0 or static
+        moving = (group['speed'] > 5) & (group['ignitionOn'] == 1)
+        rpm_variability = group.loc[moving, 'engineRPM'].nunique() if moving.any() else 2
+        rpm_frozen_penalty = 15 if (moving.any() and (rpm_variability <= 1 or group.loc[moving, 'engineRPM'].mean() == 0)) else 0
+        
+        # Temp/Speed Frozen: General check if changing over session
+        has_temp = group['engineCoolantTemperature'].notnull().any()
+        temp_variability = group['engineCoolantTemperature'].nunique() if has_temp else 2
+        temp_frozen_penalty = 10 if (has_temp and temp_variability <= 1 and total > 10) else 0
+
         # Final Weighted Score (35% CAN, 25% ODO, 20% GPS, 10% Delay, 10% IGN)
         final_score = (canbus_score * 0.35 + odo_score * 0.25 + gps_score * 0.20 + delay_score * 0.10 + ign_score * 0.10)
         
-        # Penalties
-        rpm_penalty = (group['engineRPM'] > 8000).sum() / total * 50
-        final_score = max(0, final_score - rpm_penalty)
+        # Penalties application
+        final_score = max(0, final_score - rpm_frozen_penalty - temp_frozen_penalty)
+        
+        # RPM Anormal penalty (Existing)
+        rpm_anormal_penalty = (group['engineRPM'] > 8000).sum() / total * 50
+        final_score = max(0, final_score - rpm_anormal_penalty)
 
         # Event counts for Stats
         harsh_breaking = (group['event_type'] == 'Harsh Breaking').sum()
         harsh_accel = (group['event_type'] == 'Harsh Acceleration').sum()
         harsh_turn = (group['event_type'] == 'Harsh Turn').sum()
         sos = (group['event_type'] == 'SOS').sum()
+
+        driver_id = group['driverId'].dropna().iloc[0] if not group['driverId'].dropna().empty else "N/A"
 
         return pd.Series({
             'Puntaje_Calidad': round(final_score, 2),
@@ -231,7 +300,9 @@ def process_log_data(logs_data, filename):
             'Harsh_Acceleration': harsh_accel,
             'Harsh_Turn': harsh_turn,
             'RPM_Anormal_Count': (group['engineRPM'] > 8000).sum(),
-            'Lat_Lng_Correct_Variation': "OK" if dist_change.sum() > 0 else "Static"
+            'Lat_Lng_Correct_Variation': "OK" if dist_change.sum() > 0 else "Static",
+            'Driver_ID': str(driver_id),
+            'Frozen_Sensors': (("RPM " if rpm_frozen_penalty > 0 else "") + ("Temp" if temp_frozen_penalty > 0 else "")).strip() or "None"
         })
 
     imei_metrics = df.groupby('imei').apply(calculate_v2_metrics).reset_index()

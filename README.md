@@ -9,8 +9,10 @@ A powerful web application for analyzing GPS telemetry JSON logs, visualizing de
 *   **📊 Comprehensive Scorecards**: Analyze device performance with metrics like Odometer accuracy, CAN Bus stability, and Event quality.
 *   **🌍 Localization (New!)**: Toggle between **English** and **Spanish** instantly.
 ## Key Features
+- **v2.1 Forensic Intelligence**: Advanced detection of frozen RPM, static Temperature, and static Speed data.
 - **v2.0 Forensic Scorecard**: Deep analysis of Odometer quality (frozen/decreasing) and CAN Bus completeness (6 nodes).
-- **GPS Event Bar Chart**: Real-time breakdown of Ignition, Harsh Driving, and SOS events.
+- **GPS Event Bar Chart**: Real-time breakdown of Ignition, Harsh Driving, and SOS events (fixed mapping).
+- **Driver ID Tracking**: Integrated view of driver identities in statistics and scorecard.
 - **Data Quality Radar**: Visualizes API completeness for the entire device fleet.
 - **Bilingual (EN/ES)**: Complete localization for global operations.
 - **Dockerized**: Easy deployment for any environment.

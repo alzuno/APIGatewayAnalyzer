@@ -42,7 +42,9 @@ const translations = {
         "th_fuel": "Avg Fuel %",
         "th_ign_off": "Ignition Off",
         "th_ign_on": "Ignition On",
-        "th_harsh_counts": "Harsh Qty"
+        "th_harsh_counts": "Harsh Qty",
+        "th_driver_id": "Driver ID",
+        "th_frozen_sensors": "Sensors Warning"
     },
     "es": {
         "title": "Analizador GPS",
@@ -87,6 +89,8 @@ const translations = {
         "th_fuel": "% Combustible Prom",
         "th_ign_off": "Ignición Off",
         "th_ign_on": "Ignición On",
-        "th_harsh_counts": "Cant. Bruscos"
+        "th_harsh_counts": "Cant. Bruscos",
+        "th_driver_id": "ID Conductor",
+        "th_frozen_sensors": "Alerta Sensores"
     }
 };
