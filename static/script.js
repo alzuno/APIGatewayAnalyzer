@@ -463,41 +463,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctxScore = document.getElementById('scoreChart').getContext('2d');
         const ctxEvent = document.getElementById('eventChart').getContext('2d');
 
-        // Ensure defaults are set before creating
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
         updateChartsTheme(isLight ? 'light' : 'dark');
 
         if (scoreChartInstance) scoreChartInstance.destroy();
         if (eventChartInstance) eventChartInstance.destroy();
 
-        // --- Radar Chart (Data Quality) ---
+        // --- Radar Chart (Data Completeness / Completes V2) ---
         const dq = data.data_quality;
-        const radarLabels = ['GPS Validity', 'Ignition', 'Fuel', 'Odometer', 'RPM'];
+        const radarLabels = ['GPS', 'Ignition', 'Delay', 'RPM', 'Speed', 'Temp', 'Dist', 'Fuel'];
         const radarData = [
             dq.gps_validity || 0,
-            dq.ignition_completeness || 0,
-            dq.fuel_completeness || 0,
-            dq.odo_completeness || 0,
-            dq.rpm_completeness || 0
+            dq.ignition || 0,
+            dq.delay || 0,
+            dq.rpm || 0,
+            dq.speed || 0,
+            dq.temp || 0,
+            dq.dist || 0,
+            dq.fuel || 0
         ];
-
-        // If filtering by IMEI, we might want specific stats, but for now showing global quality context is useful
-        // or we could calculate this per IMEI if we moved logic to JS. 
-        // For this iteration, let's keep the Global Data Quality Radar as the primary insight.
 
         scoreChartInstance = new Chart(ctxScore, {
             type: 'radar',
             data: {
                 labels: radarLabels,
                 datasets: [{
-                    label: 'Completeness %',
+                    label: 'Complete %',
                     data: radarData,
                     backgroundColor: 'rgba(59, 130, 246, 0.2)',
                     borderColor: '#3b82f6',
-                    pointBackgroundColor: '#3b82f6',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: '#3b82f6'
+                    pointBackgroundColor: '#3b82f6'
                 }]
             },
             options: {
@@ -511,43 +506,45 @@ document.addEventListener('DOMContentLoaded', () => {
                         suggestedMax: 100,
                         ticks: { display: false }
                     }
-                },
-                plugins: {
-                    legend: { display: false }
                 }
             }
         });
 
-        // --- Event Chart ---
-        let events = {};
+        // --- GPS Event Breakdown (Bar Chart V2) ---
+        const targetEvents = ['Ignition On', 'Ignition Off', 'Harsh Breaking', 'Harsh Acceleration', 'Harsh Turn', 'SOS'];
+        let eventCounts = {};
+        targetEvents.forEach(e => eventCounts[e] = 0);
+
         if (imei === 'all') {
-            events = data.chart_data.events_summary;
+            const rawCounts = data.chart_data.events_summary;
+            targetEvents.forEach(e => eventCounts[e] = rawCounts[e] || 0);
         } else {
-            // Filter raw data to count events
-            data.raw_data_sample.filter(r => r.imei === imei && r.event_type).forEach(r => {
-                events[r.event_type] = (events[r.event_type] || 0) + 1;
-            });
+            const sc = data.scorecard.find(r => r.imei === imei) || {};
+            eventCounts['Ignition On'] = sc.Ignition_On || 0;
+            eventCounts['Ignition Off'] = sc.Ignition_Off || 0;
+            eventCounts['Harsh Breaking'] = sc.Harsh_Breaking || 0;
+            eventCounts['Harsh Acceleration'] = sc.Harsh_Acceleration || 0;
+            eventCounts['Harsh Turn'] = sc.Harsh_Turn || 0;
+            eventCounts['SOS'] = sc.SOS_Count || 0;
         }
 
-        const sortedEvents = Object.entries(events).sort((a, b) => b[1] - a[1]).slice(0, 5);
         eventChartInstance = new Chart(ctxEvent, {
-            type: 'doughnut',
+            type: 'bar',
             data: {
-                labels: sortedEvents.map(e => e[0]),
+                labels: targetEvents,
                 datasets: [{
-                    data: sortedEvents.map(e => e[1]),
-                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'],
-                    borderWidth: 0
+                    label: translations[currentLang].chart_events,
+                    data: targetEvents.map(e => eventCounts[e]),
+                    backgroundColor: ['#10b981', '#10b981', '#f59e0b', '#f59e0b', '#f59e0b', '#ef4444'],
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
-                aspectRatio: 2,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: { color: isLight ? '#475569' : '#94a3b8' }
-                    }
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: isLight ? '#e2e8f0' : '#334155' } },
+                    x: { grid: { display: false } }
                 }
             }
         });
@@ -556,38 +553,40 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderScorecardTable(rows) {
         const tbody = document.querySelector('#scorecard-table tbody');
         const thead = document.querySelector('#scorecard-table thead');
-
         const t = translations[currentLang];
+
         thead.innerHTML = `
             <tr>
                 <th>${t.th_imei}</th>
                 <th>${t.th_score}</th>
-                <th>${t.th_odo_ok}</th>
-                <th>${t.th_can_ok}</th>
-                <th>${t.th_fix_ok}</th>
+                <th>${t.th_total_reports}</th>
                 <th>${t.th_dist}</th>
-                <th>${t.th_rpm}</th>
+                <th>${t.th_odo_quality}</th>
+                <th>${t.th_delay_avg}</th>
                 <th>${t.th_harsh}</th>
-                <th>${t.th_ignition}</th>
+                <th>${t.th_ign_balance}</th>
+                <th>${t.th_canbus_comp}</th>
+                <th>${t.th_lat_lng_var}</th>
             </tr>
         `;
 
         if (rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9">No data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10">No data</td></tr>';
             return;
         }
 
         tbody.innerHTML = rows.map(row => `
             <tr>
                 <td>${row.imei}</td>
-                <td><strong>${row.Puntaje_Calidad}</strong></td>
-                <td>${row.Odometro_Tasa_OK?.toFixed(1)}%</td>
-                <td>${row.CANBUS_Tasa_Reporte?.toFixed(1)}%</td>
-                <td>${row.LastFixTime_Tasa_OK?.toFixed(1)}%</td>
+                <td style="font-weight:bold; color:${row.Puntaje_Calidad > 80 ? '#10b981' : (row.Puntaje_Calidad > 60 ? '#f59e0b' : '#ef4444')}">${row.Puntaje_Calidad}</td>
+                <td>${row.Total_Reportes}</td>
                 <td>${row['Distancia_Recorrida_(KM)']?.toFixed(2)}</td>
-                <td>${row.CANBUS_RPM_Anormal || 0}</td>
-                <td>${row.Eventos_Harsh || 0}</td>
-                 <td style="color:${row.Ignition_Coherencia === 'OK' ? '#10b981' : '#ef4444'}">${row.Ignition_On_Off_Balance?.toFixed(0)} (${row.Ignition_Coherencia})</td>
+                <td>${row.Odo_Quality_Score}%</td>
+                <td>${row.Delay_Avg}s</td>
+                <td>${row.Harsh_Events}</td>
+                <td style="color:${row.Ignition_Balance <= 1 ? '#10b981' : '#ef4444'}">${row.Ignition_Balance} (${row.Ignition_On}/${row.Ignition_Off})</td>
+                <td>${row.Canbus_Completeness}%</td>
+                <td><span class="badge ${row.Lat_Lng_Correct_Variation === 'OK' ? 'badge-success' : 'badge-danger'}">${row.Lat_Lng_Correct_Variation}</span></td>
             </tr>
         `).join('');
     }
@@ -595,26 +594,30 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderStatsTable(rows) {
         const tbody = document.querySelector('#stats-table tbody');
         const thead = document.querySelector('#stats-table thead');
-
         const t = translations[currentLang];
+
         thead.innerHTML = `
             <tr>
                 <th>${t.th_imei}</th>
                 <th>${t.th_first}</th>
                 <th>${t.th_last}</th>
-                <th>${t.th_total}</th>
+                <th>${t.th_avg_delay}</th>
                 <th>${t.th_start_km}</th>
                 <th>${t.th_end_km}</th>
                 <th>${t.th_dist}</th>
                 <th>${t.th_avg_speed}</th>
                 <th>${t.th_max_speed}</th>
+                <th>${t.th_total_reports}</th>
                 <th>${t.th_avg_rpm}</th>
                 <th>${t.th_fuel}</th>
+                <th>${t.th_ign_off}</th>
+                <th>${t.th_ign_on}</th>
+                <th>${t.th_harsh_counts}</th>
             </tr>
         `;
 
         if (rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11">No data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="15">No data</td></tr>';
             return;
         }
 
@@ -623,14 +626,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${row.imei}</td>
                 <td>${new Date(row.Primer_Reporte).toLocaleString()}</td>
                 <td>${new Date(row.Ultimo_Reporte).toLocaleString()}</td>
-                <td>${row.Total_Reportes}</td>
+                <td>${row.Delay_Avg}s</td>
                 <td>${row.KM_Inicial}</td>
                 <td>${row.KM_Final}</td>
                 <td>${row['Distancia_Recorrida_(KM)']?.toFixed(2)}</td>
                 <td>${row['Velocidad_Promedio_(KPH)']?.toFixed(1)}</td>
-                <td>${row['Velocidad_Maxima_(KPH)']}</td>
+                <td>${row['Velocidad_Maxima_(KPH)'] || 0}</td>
+                <td>${row.Total_Reportes}</td>
                 <td>${row.RPM_Promedio?.toFixed(0)}</td>
                 <td>${row['Nivel_Combustible_Promedio_%']?.toFixed(1)}%</td>
+                <td>${row.Ignition_Off}</td>
+                <td>${row.Ignition_On}</td>
+                <td>${row.Harsh_Events}</td>
             </tr>
         `).join('');
     }
@@ -719,12 +726,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!rows || rows.length === 0) return;
 
-        // Dynamic headers
-        const cols = Object.keys(rows[0]);
+        // Custom ordered columns for professional forensic view
+        const cols = [
+            'imei', 'time', 'receiveTimestamp', 'delay_seconds', 'lat', 'lng',
+            'altitude', 'speed', 'heading', 'lastFixTime', 'isMoving',
+            'batteryLevelPercentage', 'reportMode', 'quality', 'mileage',
+            'ignitionOn', 'externalPowerVcc', 'digitalInput', 'driverId',
+            'engineRPM', 'vehicleSpeed', 'engineCoolantTemperature',
+            'totalDistance', 'totalFuelUsed', 'fuelLevelInput', 'event_type'
+        ];
+
         thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
 
         tbody.innerHTML = rows.map(row => `
-            <tr>${cols.map(c => `<td>${row[c] !== null ? row[c] : ''}</td>`).join('')}</tr>
+            <tr>${cols.map(c => `<td>${row[c] !== undefined && row[c] !== null ? row[c] : ''}</td>`).join('')}</tr>
         `).join('');
     }
 

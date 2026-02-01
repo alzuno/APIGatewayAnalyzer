@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-02-01
+### Added
+- **Forensic Scorecard**: New scoring algorithm focusing on Odometer Integrity, CAN Bus completeness, and GPS quality.
+- **Deep CAN Bus Tracking**: Monitors 6 specific sensors: RPM, Speed, Temp, Distance, Fuel Level, and Total Fuel.
+- **GPS Event Breakdown**: Vertical bar chart tracking specific alerts (Ignition, Harsh Breaking/Accel/Turn, SOS).
+- **Advanced Statistics**: Expanded tables with latency, Ignition balance, and Min/Max sensor values.
+- **Scorecard.md**: Detailed technical documentation on how scores are calculated.
+- **Lat/Lng Variation Validation**: Detects "Frozen Odometer" scenarios.
+
 ## [1.1.0] - 2026-02-01
 
 ### Added

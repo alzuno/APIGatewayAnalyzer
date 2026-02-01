@@ -51,9 +51,9 @@ def clean_df_for_json(df):
 
 def process_log_data(logs_data, filename):
     """
-    Main logic ported from user script.
+    Advanced Analytics v2.0 - Deep Telemetry Forensic Logic
     """
-    print(f"Processing {len(logs_data)} records...")
+    print(f"Processing {len(logs_data)} records for v2.0...")
     
     all_telemetry_data = []
     processed_logs_insertIds = set()
@@ -63,22 +63,14 @@ def process_log_data(logs_data, filename):
     for log_entry in logs_data:
         try:
             receive_ts = log_entry.get('receiveTimestamp')
-            
-            # Access nested JSON payload
             json_payload = log_entry.get('jsonPayload', {})
-            # Some logs might have 'data' directly or nested
             data_obj = json_payload.get('data', {}) if isinstance(json_payload, dict) else {}
-            
             additional_info_str = data_obj.get('AdditionalInformation')
             
             if not additional_info_str:
-                # Fallback: sometimes raw string in jsonPayload?
-                # Sticking to user script logic strictly
                 continue
 
             telemetry_list = []
-
-            # Try parsing Arguments -> message
             try:
                 additional_info_data = json.loads(additional_info_str)
                 arguments_str = additional_info_data.get('Arguments')
@@ -86,40 +78,24 @@ def process_log_data(logs_data, filename):
                     arguments_data = json.loads(arguments_str)
                     message_content = arguments_data.get('message')
                     if message_content:
-                        if isinstance(message_content, str):
-                            parsed_data = json.loads(message_content)
-                        else:
-                            parsed_data = message_content
-
-                        if isinstance(parsed_data, dict):
-                            telemetry_list.append(parsed_data)
-                        elif isinstance(parsed_data, list):
-                            telemetry_list = parsed_data
-            except (json.JSONDecodeError, TypeError):
-                # Fallback extraction method from user script
+                        parsed_data = json.loads(message_content) if isinstance(message_content, str) else message_content
+                        if isinstance(parsed_data, dict): telemetry_list.append(parsed_data)
+                        elif isinstance(parsed_data, list): telemetry_list = parsed_data
+            except:
+                # Fallback extraction
                 start_marker = '\\"message\\":'
                 start_index = additional_info_str.find(start_marker)
                 if start_index != -1:
                     text_to_decode = additional_info_str[start_index + len(start_marker):]
                     try:
-                        clean_text = codecs.decode(text_to_decode, 'unicode_escape')
-                        clean_text = clean_text.strip().strip('"')
+                        clean_text = codecs.decode(text_to_decode, 'unicode_escape').strip().strip('"')
                         parsed_data, _ = decoder.raw_decode(clean_text)
-                        
-                        if isinstance(parsed_data, dict):
-                            telemetry_list.append(parsed_data)
-                        elif isinstance(parsed_data, list):
-                            telemetry_list = parsed_data
-                    except:
-                        pass
+                        if isinstance(parsed_data, dict): telemetry_list.append(parsed_data)
+                        elif isinstance(parsed_data, list): telemetry_list = parsed_data
+                    except: pass
 
-            if not telemetry_list:
-                continue
-
-            # Normalize telemetry points
             for point in telemetry_list:
-                if not isinstance(point, dict) or 'imei' not in point:
-                    continue
+                if not isinstance(point, dict) or 'imei' not in point: continue
                 
                 addons = point.get('addOns', {})
                 canbus = addons.get('canbus', {})
@@ -151,202 +127,149 @@ def process_log_data(logs_data, filename):
                     'totalFuelUsed': canbus.get('totalFuelUsed'),
                     'fuelLevelInput': canbus.get('fuelLevelInput'),
                     'event_type': event.get('type'),
-                    # Data Quality Flags
-                    'has_ignition': addons.get('ignitionOn') is not None,
-                    'has_fuel': canbus.get('fuelLevelInput') is not None,
-                    'has_odo': canbus.get('totalDistance') is not None,
+                    # Quality Indicators for Radar
                     'has_rpm': canbus.get('engineRPM') is not None,
+                    'has_speed': canbus.get('vehicleSpeed') is not None,
+                    'has_temp': canbus.get('engineCoolantTemperature') is not None,
+                    'has_dist': canbus.get('totalDistance') is not None,
+                    'has_fuel_total': canbus.get('totalFuelUsed') is not None,
+                    'has_fuel_level': canbus.get('fuelLevelInput') is not None,
+                    'has_ignition': addons.get('ignitionOn') is not None,
                     'gps_ok': point.get('quality') == 'Good'
                 })
-            
-            if 'insertId' in log_entry:
-                processed_logs_insertIds.add(log_entry['insertId'])
-                
-        except Exception:
-            pass # Skipping malformed logs as per script
+        except: pass
 
-    if not all_telemetry_data:
-        return None
+    if not all_telemetry_data: return None
 
-    # --- PANDAS PROCESSING ---
     df = pd.DataFrame(all_telemetry_data)
     
-    # helper
-    def safe_to_nullable_int(series):
-        s_numeric = pd.to_numeric(series, errors='coerce')
-        mask = s_numeric.notna()
-        # Create a Series with Int64 dtype
-        result = pd.Series([pd.NA]*len(series), index=series.index, dtype='Int64')
-        result[mask] = s_numeric[mask].astype(int)
-        return result
-
     # Conversions
-    df['time'] = pd.to_datetime(df['time'], format='ISO8601', errors='coerce', utc=True)
-    df['lastFixTime'] = pd.to_datetime(df['lastFixTime'], format='ISO8601', errors='coerce', utc=True)
-    df['receiveTimestamp'] = pd.to_datetime(df['receiveTimestamp'], format='ISO8601', errors='coerce', utc=True)
+    for col in ['time', 'lastFixTime', 'receiveTimestamp']:
+        df[col] = pd.to_datetime(df[col], format='ISO8601', errors='coerce', utc=True).dt.floor('s')
     
-    # Floor to seconds
-    df['time'] = df['time'].dt.floor('s')
-    df['lastFixTime'] = df['lastFixTime'].dt.floor('s')
-    df['receiveTimestamp'] = df['receiveTimestamp'].dt.floor('s')
-
-    # Delay
-    df['delay_seconds'] = (df['receiveTimestamp'] - df['time']).dt.total_seconds()
-
-    # Numeric conversions
+    df['delay_seconds'] = (df['receiveTimestamp'] - df['time']).dt.total_seconds().clip(lower=0)
     df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
     df['lng'] = pd.to_numeric(df['lng'], errors='coerce')
-
-    int_columns = [
-        'altitude', 'speed', 'heading', 'batteryLevelPercentage', 'mileage',
-        'externalPowerVcc', 'digitalInput', 'driverId', 'engineRPM',
-        'vehicleSpeed', 'engineCoolantTemperature', 'totalDistance',
-        'totalFuelUsed', 'fuelLevelInput', 'delay_seconds'
-    ]
-
-    for col in int_columns:
-        if col in df.columns:
-            df[col] = safe_to_nullable_int(df[col])
-            
-    # Booleans
-    for col in ['isMoving', 'ignitionOn']:
-        if col in df.columns:
-            df[col] = df[col].astype('boolean')
-            # For JSON serialization later, we might want these as bool or None, handled by clean_df_for_json
+    df['speed'] = pd.to_numeric(df['speed'], errors='coerce')
+    df['mileage'] = pd.to_numeric(df['mileage'], errors='coerce')
+    df['engineRPM'] = pd.to_numeric(df['engineRPM'], errors='coerce')
 
     # Deduplication
-    df['record_id'] = df['imei'].astype(str) + df['time'].astype(str) + df['lat'].astype(str) + df['lng'].astype(str)
-    total_initial = len(df)
-    df = df.drop_duplicates(subset=['record_id'], keep='first')
-    total_duplicados = total_initial - len(df)
-    df = df.drop(columns=['record_id']) # clean up
+    df = df.drop_duplicates(subset=['imei', 'time', 'lat', 'lng'], keep='first')
 
-    # --- AGGREGATION & STATS ---
-    agg_dict = {
-        'time': ['min', 'max', 'count'],
-        'mileage': ['min', 'max'],
-        'speed': ['mean', 'max'],
-        'engineRPM': ['mean'],
-        'fuelLevelInput': ['mean']
-    }
-    # Flattening logic needed for aggregation rename
-    # Simple groupby first
+    # --- ADVANCED METRICS PER IMEI ---
+    def calculate_v2_metrics(group):
+        group = group.sort_values('time')
+        total = len(group)
+        
+        # 1. Odometer Quality
+        # a) Decreasing
+        odo_diff = group['mileage'].diff()
+        odo_drops = (odo_diff < 0).sum()
+        # b) Frozen (Moving but mileage static)
+        # Using a simple threshold for movement: speed > 5 or lat/lng diff
+        dist_change = (group['lat'].diff().abs() > 0.0001) | (group['lng'].diff().abs() > 0.0001)
+        frozen_odo = (dist_change & (odo_diff == 0)).sum()
+        odo_score = max(0, 100 - (odo_drops + frozen_odo) / total * 100)
+        
+        # 2. CAN Bus Completeness (6 specific fields)
+        canbus_fields = ['has_rpm', 'has_speed', 'has_temp', 'has_dist', 'has_fuel_total', 'has_fuel_level']
+        canbus_score = group[canbus_fields].mean().mean() * 100
+        
+        # 3. Latency
+        avg_delay = group['delay_seconds'].mean()
+        # Points: 100 if < 30s, linear drop to 0 at 300s
+        delay_score = 100 if avg_delay <= 30 else max(0, 100 - (avg_delay - 30) * (100/270))
+        
+        # 4. GPS Integrity
+        gps_score = (group['gps_ok'].sum() / total) * 100
+
+        # 5. Ignition Balance
+        ign_on = (group['event_type'] == 'Ignition On').sum()
+        ign_off = (group['event_type'] == 'Ignition Off').sum()
+        ign_balance = abs(ign_on - ign_off)
+        ign_score = 100 if ign_balance <= 1 else max(0, 100 - (ign_balance * 10))
+
+        # Final Weighted Score (35% CAN, 25% ODO, 20% GPS, 10% Delay, 10% IGN)
+        final_score = (canbus_score * 0.35 + odo_score * 0.25 + gps_score * 0.20 + delay_score * 0.10 + ign_score * 0.10)
+        
+        # Penalties
+        rpm_penalty = (group['engineRPM'] > 8000).sum() / total * 50
+        final_score = max(0, final_score - rpm_penalty)
+
+        # Event counts for Stats
+        harsh_breaking = (group['event_type'] == 'Harsh Breaking').sum()
+        harsh_accel = (group['event_type'] == 'Harsh Acceleration').sum()
+        harsh_turn = (group['event_type'] == 'Harsh Turn').sum()
+        sos = (group['event_type'] == 'SOS').sum()
+
+        return pd.Series({
+            'Puntaje_Calidad': round(final_score, 2),
+            'Total_Reportes': total,
+            'Delay_Avg': round(avg_delay, 2),
+            'Odo_Quality_Score': round(odo_score, 2),
+            'Canbus_Completeness': round(canbus_score, 2),
+            'GPS_Integrity': round(gps_score, 2),
+            'Ignition_Balance': ign_balance,
+            'Ignition_On': ign_on,
+            'Ignition_Off': ign_off,
+            'Harsh_Events': harsh_breaking + harsh_accel + harsh_turn,
+            'SOS_Count': sos,
+            'Harsh_Breaking': harsh_breaking,
+            'Harsh_Acceleration': harsh_accel,
+            'Harsh_Turn': harsh_turn,
+            'RPM_Anormal_Count': (group['engineRPM'] > 8000).sum(),
+            'Lat_Lng_Correct_Variation': "OK" if dist_change.sum() > 0 else "Static"
+        })
+
+    imei_metrics = df.groupby('imei').apply(calculate_v2_metrics).reset_index()
+
+    # --- STATISTICS ---
     stats = df.groupby('imei').agg({
-        'time': [('Primer_Reporte', 'min'), ('Ultimo_Reporte', 'max'), ('Total_Reportes', 'count')],
+        'time': [('Primer_Reporte', 'min'), ('Ultimo_Reporte', 'max')],
         'mileage': [('KM_Inicial', 'min'), ('KM_Final', 'max')],
         'speed': [('Velocidad_Promedio_(KPH)', 'mean'), ('Velocidad_Maxima_(KPH)', 'max')],
         'engineRPM': [('RPM_Promedio', 'mean')],
         'fuelLevelInput': [('Nivel_Combustible_Promedio_%', 'mean')]
     })
-    
-    # Flatten columns
     stats.columns = stats.columns.droplevel(0)
     stats = stats.reset_index()
+    stats['Distancia_Recorrida_(KM)'] = (stats['KM_Final'] - stats['KM_Inicial']).clip(lower=0)
     
-    # Calculated Fields
-    stats['Distancia_Recorrida_(KM)'] = stats['KM_Final'] - stats['KM_Inicial']
-    
-    # Events
-    event_counts = pd.crosstab(df['imei'], df['event_type']).add_prefix('Eventos_')
-    if not event_counts.empty:
-        stats = stats.merge(event_counts, on='imei', how='left').fillna(0)
+    # Merge all into scorecard for Frontend
+    scorecard = imei_metrics.merge(stats[['imei', 'Distancia_Recorrida_(KM)', 'KM_Inicial', 'KM_Final', 'Primer_Reporte', 'Ultimo_Reporte', 'Velocidad_Promedio_(KPH)', 'Velocidad_Maxima_(KPH)', 'RPM_Promedio', 'Nivel_Combustible_Promedio_%']], on='imei', how='left')
 
-    # --- SCORECARD CALCULATION ---
-    def calculate_imei_quality(group):
-        group = group.sort_values('time')
-        # Odómetro decreciente
-        odometer_drops = (group['mileage'].diff() < 0).sum()
-        # CANBUS NA
-        canbus_na_count = group['engineRPM'].isna().sum()
-        # RPM Anormal ( > 8000 or < 100)
-        rpm_anormal_count = ((group['engineRPM'] > 8000) | (group['engineRPM'] < 100)).sum()
-        # Last Fix Time Desactualizado (> 300s)
-        # Note: Handle NaT if any
-        valid_times = pd.notna(group['time']) & pd.notna(group['lastFixTime'])
-        time_diff = (group.loc[valid_times, 'time'] - group.loc[valid_times, 'lastFixTime']).dt.total_seconds()
-        lastfix_desactualizado_count = (time_diff > 300).sum()
-        
-        return pd.Series({
-            'Odometro_Errores_Decreciente': odometer_drops,
-            'CANBUS_Registros_NA': canbus_na_count,
-            'CANBUS_RPM_Anormal': rpm_anormal_count,
-            'LastFixTime_Desactualizado_Count': lastfix_desactualizado_count
-        })
-
-    imei_metrics = df.groupby('imei').apply(calculate_imei_quality).reset_index()
-    
-    scorecard = stats[['imei', 'Total_Reportes', 'Distancia_Recorrida_(KM)']].merge(imei_metrics, on='imei', how='left')
-    
-    # Rates
-    scorecard['Odometro_Tasa_OK'] = (1 - (scorecard['Odometro_Errores_Decreciente'] / scorecard['Total_Reportes'])) * 100
-    scorecard['CANBUS_Tasa_Reporte'] = (1 - (scorecard['CANBUS_Registros_NA'] / scorecard['Total_Reportes'])) * 100
-    scorecard['LastFixTime_Tasa_OK'] = (1 - (scorecard['LastFixTime_Desactualizado_Count'] / scorecard['Total_Reportes'])) * 100
-    
-    # Harsh / Ignition
-    harsh_cols = [c for c in stats.columns if 'Eventos_Harsh' in c]
-    stats['Eventos_Harsh'] = stats[harsh_cols].sum(axis=1) if harsh_cols else 0
-    
-    stats['Ignition_On_Off_Balance'] = abs(stats.get('Eventos_Ignition_on', 0) - stats.get('Eventos_Ignition_off', 0))
-    
-    # Merge back to scorecard
-    cols_to_merge = ['imei', 'Eventos_Harsh', 'Ignition_On_Off_Balance']
-    if 'Eventos_Ignition_on' in stats: cols_to_merge.append('Eventos_Ignition_on') 
-    if 'Eventos_Ignition_off' in stats: cols_to_merge.append('Eventos_Ignition_off')
-    
-    scorecard = scorecard.merge(stats[cols_to_merge], on='imei', how='left')
-    
-    scorecard['Ignition_Coherencia'] = np.where(scorecard['Ignition_On_Off_Balance'] > 10, "Desbalance Alto", "OK")
-    
-    scorecard['Puntaje_Calidad'] = (
-        (scorecard['Odometro_Tasa_OK'] * 0.35) +
-        (scorecard['CANBUS_Tasa_Reporte'] * 0.35) +
-        (scorecard['LastFixTime_Tasa_OK'] * 0.20)
-    ) - (scorecard['CANBUS_RPM_Anormal'] / scorecard['Total_Reportes'] * 100 * 0.10)
-    
-    scorecard['Puntaje_Calidad'] = scorecard['Puntaje_Calidad'].clip(lower=0).round(2)
-    scorecard = scorecard.sort_values('Puntaje_Calidad', ascending=False)
-
-    # --- ADVANCED ANALYTICS (Data Quality Radar) ---
-    # Overall Completeness
-    quality_metrics = {
-        'gps_validity': (df['gps_ok'].sum() / len(df) * 100),
-        'ignition_completeness': (df['has_ignition'].sum() / len(df) * 100),
-        'fuel_completeness': (df['has_fuel'].sum() / len(df) * 100),
-        'odo_completeness': (df['has_odo'].sum() / len(df) * 100),
-        'rpm_completeness': (df['has_rpm'].sum() / len(df) * 100)
+    # --- GLOBAL RADAR DATA ---
+    global_quality = {
+        'gps_validity': df['gps_ok'].mean() * 100,
+        'ignition': df['has_ignition'].mean() * 100,
+        'delay': (df['delay_seconds'] < 60).mean() * 100,
+        'rpm': df['has_rpm'].mean() * 100,
+        'speed': df['has_speed'].mean() * 100,
+        'temp': df['has_temp'].mean() * 100,
+        'dist': df['has_dist'].mean() * 100,
+        'fuel': df['has_fuel_total'].mean() * 100
     }
 
-    # Per Imei Chart Data logic moved to JS essentially, but we summary here
-    # --- FINAL OUTPUT CONSTRUCTION ---
-    
-    # General Stats
-    total_devices = df['imei'].nunique()
-    total_records = len(df)
-    total_distance = stats['Distancia_Recorrida_(KM)'].sum()
-    avg_score = scorecard['Puntaje_Calidad'].mean()
-    
     summary = {
         "filename": filename,
         "processed_at": datetime.now().isoformat(),
-        "total_devices": int(total_devices),
-        "total_records": int(total_records),
-        "total_duplicates_removed": int(total_duplicados),
-        "total_distance_km": float(round(total_distance, 2)),
-        "average_quality_score": float(round(avg_score, 2))
+        "total_devices": int(df['imei'].nunique()),
+        "total_records": int(len(df)),
+        "total_distance_km": float(round(stats['Distancia_Recorrida_(KM)'].sum(), 2)),
+        "average_quality_score": float(round(scorecard['Puntaje_Calidad'].mean(), 2))
     }
     
     result = {
         "summary": summary,
         "scorecard": clean_df_for_json(scorecard),
-        "stats_per_imei": clean_df_for_json(stats),
-        "raw_data_sample": clean_df_for_json(df.head(1000)), 
-        "data_quality": quality_metrics, # New Radar Data
+        "raw_data_sample": clean_df_for_json(df.head(2000)), 
+        "data_quality": global_quality,
         "chart_data": {
             "score_distribution": scorecard['Puntaje_Calidad'].tolist(),
             "events_summary": df['event_type'].value_counts().to_dict()
         }
     }
-    
     return result
 
 @app.route('/')
