@@ -36,18 +36,30 @@ def save_history_entry(entry):
     with open(HISTORY_FILE, 'w') as f:
         json.dump(history, f, indent=2)
 
+def sanitize_for_json(obj):
+    """Recursively convert NaN, Inf, -Inf to None for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(v) for v in obj]
+    elif isinstance(obj, float):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+    return obj
+
 def clean_df_for_json(df):
     """Convert a DataFrame to a list of dicts suitable for JSON serialization."""
     df_clean = df.copy()
     # Handle Timestamps
-    for col in df_clean.select_dtypes(include=['datetime64[ns]', 'datetime64[ns, UTC]']).columns:
-        df_clean[col] = df_clean[col].astype(str)
+    for col in df_clean.select_dtypes(include=['datetime64[ns]', 'datetime64[ns, UTC]', 'datetime64']).columns:
+        df_clean[col] = df_clean[col].astype(str).replace(['NaT', 'nan', 'None'], None)
     
-    # Handle NaNs and Infs
-    df_clean = df_clean.replace([np.inf, -np.inf], None)
-    df_clean = df_clean.where(pd.notnull(df_clean), None)
+    # Handle NaNs and Infs explicitly by converting to object and replacing
+    df_clean = df_clean.replace([np.inf, -np.inf, np.nan], None)
     
-    return df_clean.to_dict(orient='records')
+    # Final safety pass via dictionary conversion + recursive sanitizer
+    data_list = df_clean.to_dict(orient='records')
+    return sanitize_for_json(data_list)
 
 def process_log_data(logs_data, filename):
     """
@@ -270,7 +282,7 @@ def process_log_data(logs_data, filename):
             "events_summary": df['event_type'].value_counts().to_dict()
         }
     }
-    return result
+    return sanitize_for_json(result)
 
 @app.route('/')
 def index():

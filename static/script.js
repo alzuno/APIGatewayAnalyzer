@@ -199,9 +199,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Re-render tables if data exists (to update headers)
         if (currentData) {
-            renderScorecardTable(currentData.scorecard); // Needs filter logic if active, but simplest to re-render all
-            renderStatsTable(currentData.stats_per_imei);
-            updateDashboardView(); // Refresh view to handle filtered state
+            renderScorecardTable(currentData.scorecard || []);
+            renderStatsTable(currentData.scorecard || []);
+            updateDashboardView();
         }
     }
 
@@ -405,10 +405,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Charts
         // Populate IMEI Filter
-        const imeis = data.stats_per_imei.map(s => s.imei);
-        imeiFilter.innerHTML = '<option value="all">All Devices</option>' +
+        const imeis = (data.scorecard || []).map(s => s.imei);
+        imeiFilter.innerHTML = `<option value="all">${translations[currentLang].all_devices}</option>` +
             imeis.map(imei => `<option value="${imei}">${imei}</option>`).join('');
-        imeiFilter.value = 'all'; // Default
+        imeiFilter.value = 'all';
 
         currentData = data;
         updateDashboardView();
@@ -423,9 +423,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateDashboardView() {
         if (!currentData) return;
 
-        let filteredScorecard = currentData.scorecard;
-        let filteredStats = currentData.stats_per_imei;
-        let filteredRaw = currentData.raw_data_sample;
+        let filteredScorecard = currentData.scorecard || [];
+        let filteredStats = currentData.scorecard || [];
+        let filteredRaw = currentData.raw_data_sample || [];
 
         // If single IMEI selected
         if (selectedImei !== 'all') {
