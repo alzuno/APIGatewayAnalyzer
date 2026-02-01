@@ -7,7 +7,10 @@ A powerful web application for analyzing GPS telemetry JSON logs, visualizing de
 ## Features
 
 *   **📊 Comprehensive Scorecards**: Analyze device performance with metrics like Odometer accuracy, CAN Bus stability, and Event quality.
-*   **🗺️ Interactive Maps**:
+*   **🌍 Localization (New!)**: Toggle between **English** and **Spanish** instantly.
+*   **🎯 Advanced Analytics (New!)**:
+    *   **Data Quality Radar**: Visualizes the completeness of GPS, Ignition, Fuel, and Odometer data.
+    *   **Event Breakdown**: Detailed charts for specific alert types.
     *   **Auto-Zoom**: Automatically focuses on the selected device's route.
     *   **Smart Themes**: Map tiles adapt to System/Light/Dark mode preferences.
     *   **Path Visualization**: Full route plotting for individual devices.
@@ -60,6 +63,12 @@ To run this application on a production server, you **do not** need the source c
 
 ### GitHub Actions (CI/CD)
 This repository includes a workflow in `.github/workflows/publish.yml` that automatically builds and publishes the Docker image to **GitHub Container Registry (GHCR)** whenever you push to `main` or create a release tag (e.g., `v1.0`).
+
+## 📜 Version History
+See [CHANGELOG.md](CHANGELOG.md) for details.
+
+*   **v1.1.0**: Localization (EN/ES) & Advanced Data Quality Analytics.
+*   **v1.0.0**: Docker Support & Theme System.
 
 ---
 

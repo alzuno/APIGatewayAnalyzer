@@ -42,12 +42,15 @@
                         <path d="M3 12h18M3 6h18M3 18h18" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </button>
-                <button id="theme-toggle" class="icon-btn" title="Toggle Theme" style="margin-right: 1rem;">
+                <button id="theme-toggle" class="icon-btn" title="Toggle Theme" style="margin-right: 0.5rem;">
                     <!-- Auto Icon Default -->
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path
                             d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z" />
                     </svg>
+                </button>
+                <button id="lang-toggle" class="action-btn" style="margin-right: 1rem; padding: 0.4rem 0.8rem; height: auto;" title="Switch Language">
+                    <span id="lang-text">EN</span>
                 </button>
                 <div class="upload-area" id="upload-zone">
                     <input type="file" id="file-input" accept=".json" hidden>
@@ -183,7 +186,8 @@
             </div>
         </main>
     </div>
-
+    
+    <script src="/static/translations.js"></script>
     <script src="/static/script.js"></script>
 </body>
 

@@ -13,10 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.querySelector('.sidebar');
     const exportBtn = document.getElementById('export-btn');
     const themeBtn = document.getElementById('theme-toggle');
+    const langBtn = document.getElementById('lang-toggle');
 
     // Theme State
     const THEMES = ['auto', 'light', 'dark'];
     let currentTheme = localStorage.getItem('theme') || 'auto';
+
+    // Lang State
+    let currentLang = localStorage.getItem('lang') || 'en';
 
 
     // Charts instances
@@ -126,8 +130,88 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Init Theme ---
+    // --- Language Logic ---
+    function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem('lang', lang);
+        document.getElementById('lang-text').textContent = lang.toUpperCase();
+
+        // Update Static Texts
+        updateTexts();
+    }
+
+    function updateTexts() {
+        const t = translations[currentLang];
+
+        // Element ID -> Translation Key mapping
+        const idMap = {
+            'upload-text': 'upload_text',
+            'report-title': 'report_title',
+            'export-btn': 'export_btn',
+            'search-scorecard': 'search_placeholder',
+            'search-stats': 'search_placeholder'
+        };
+
+        // Update mapped IDs
+        for (const [id, key] of Object.entries(idMap)) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+
+            // Handle specific element types
+            if (el.tagName === 'INPUT' && el.placeholder) {
+                el.placeholder = t[key];
+            } else if (id === 'export-btn') {
+                // Preserve Icon
+                const icon = el.querySelector('svg').outerHTML;
+                el.innerHTML = icon + ' ' + t[key];
+            } else {
+                el.textContent = t[key];
+            }
+        }
+
+        // Manual updates for complex selectors or classes
+        document.querySelector('.sidebar-header h2').textContent = t.title;
+        document.querySelector('.history-section h3').textContent = t.history;
+        document.querySelector('#empty-state h2').textContent = t.ready_title;
+        document.querySelector('#empty-state p').textContent = t.ready_desc;
+        document.querySelector('#loader p').textContent = t.processing;
+        document.querySelector('label[for="imei-filter"]').textContent = t.filter_label;
+        document.querySelector('#imei-filter option[value="all"]').textContent = t.all_devices;
+
+        // KPIs
+        document.querySelector('#kpi-score').parentElement.querySelector('h3').textContent = t.kpi_score;
+        document.querySelector('#kpi-devices').parentElement.querySelector('h3').textContent = t.kpi_devices;
+        document.querySelector('#kpi-records').parentElement.querySelector('h3').textContent = t.kpi_records;
+        document.querySelector('#kpi-distance').parentElement.querySelector('h3').textContent = t.kpi_distance;
+
+        // Chart Titles
+        const chartCards = document.querySelectorAll('.chart-card h3');
+        if (chartCards.length >= 2) {
+            chartCards[0].textContent = t.chart_quality;
+            chartCards[1].textContent = t.chart_events;
+        }
+
+        // Tabs
+        document.querySelector('[data-tab="scorecard"]').textContent = t.tab_scorecard;
+        document.querySelector('[data-tab="stats"]').textContent = t.tab_stats;
+        document.querySelector('[data-tab="map"]').textContent = t.tab_map;
+        document.querySelector('[data-tab="raw"]').textContent = t.tab_raw;
+
+        // Re-render tables if data exists (to update headers)
+        if (currentData) {
+            renderScorecardTable(currentData.scorecard); // Needs filter logic if active, but simplest to re-render all
+            renderStatsTable(currentData.stats_per_imei);
+            updateDashboardView(); // Refresh view to handle filtered state
+        }
+    }
+
+    langBtn.onclick = () => {
+        setLanguage(currentLang === 'en' ? 'es' : 'en');
+    };
+
+    // --- Init Theme & Lang ---
     applyTheme(currentTheme);
+    setLanguage(currentLang);
 
     // --- History Loading ---
     async function loadHistory() {
@@ -373,6 +457,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMap(filteredRaw);
     }
 
+
+
     function renderCharts(data, imei) {
         const ctxScore = document.getElementById('scoreChart').getContext('2d');
         const ctxEvent = document.getElementById('eventChart').getContext('2d');
@@ -384,42 +470,55 @@ document.addEventListener('DOMContentLoaded', () => {
         if (scoreChartInstance) scoreChartInstance.destroy();
         if (eventChartInstance) eventChartInstance.destroy();
 
-        // Score Chart
-        if (imei === 'all') {
-            // Histogram as before
-            const scores = data.chart_data.score_distribution;
-            const histData = [0, 0, 0, 0, 0];
-            scores.forEach(s => {
-                if (s < 50) histData[0]++;
-                else if (s < 70) histData[1]++;
-                else if (s < 80) histData[2]++;
-                else if (s < 90) histData[3]++;
-                else histData[4]++;
-            });
-            scoreChartInstance = new Chart(ctxScore, {
-                type: 'bar',
-                data: {
-                    labels: ['<50', '50-70', '70-80', '80-90', '90-100'],
-                    datasets: [{ label: 'Devices', data: histData, backgroundColor: '#3b82f6', borderRadius: 4 }]
-                },
-                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#334155' } }, x: { grid: { display: false } } } }
-            });
-        } else {
-            // Single Gauge-like chart or just text? Let's do a single bar for now or just hide it?
-            // A simple gauge is hard with ChartJS default, let's show history of scores? No data for that.
-            // Let's show a single Horizontal Bar
-            const sc = data.scorecard.find(r => r.imei === imei) || {};
-            scoreChartInstance = new Chart(ctxScore, {
-                type: 'bar',
-                data: {
-                    labels: ['Quality Score'],
-                    datasets: [{ label: 'Score', data: [sc.Puntaje_Calidad || 0], backgroundColor: '#10b981', barThickness: 40, borderRadius: 10 }]
-                },
-                options: { indexAxis: 'y', scales: { x: { max: 100 } } }
-            });
-        }
+        // --- Radar Chart (Data Quality) ---
+        const dq = data.data_quality;
+        const radarLabels = ['GPS Validity', 'Ignition', 'Fuel', 'Odometer', 'RPM'];
+        const radarData = [
+            dq.gps_validity || 0,
+            dq.ignition_completeness || 0,
+            dq.fuel_completeness || 0,
+            dq.odo_completeness || 0,
+            dq.rpm_completeness || 0
+        ];
 
-        // Event Chart
+        // If filtering by IMEI, we might want specific stats, but for now showing global quality context is useful
+        // or we could calculate this per IMEI if we moved logic to JS. 
+        // For this iteration, let's keep the Global Data Quality Radar as the primary insight.
+
+        scoreChartInstance = new Chart(ctxScore, {
+            type: 'radar',
+            data: {
+                labels: radarLabels,
+                datasets: [{
+                    label: 'Completeness %',
+                    data: radarData,
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: '#3b82f6',
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#3b82f6'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    r: {
+                        angleLines: { color: isLight ? '#e2e8f0' : '#334155' },
+                        grid: { color: isLight ? '#e2e8f0' : '#334155' },
+                        pointLabels: { color: isLight ? '#475569' : '#94a3b8' },
+                        suggestedMin: 0,
+                        suggestedMax: 100,
+                        ticks: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // --- Event Chart ---
         let events = {};
         if (imei === 'all') {
             events = data.chart_data.events_summary;
@@ -441,7 +540,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     borderWidth: 0
                 }]
             },
-            options: { responsive: true, aspectRatio: 2, plugins: { legend: { position: 'right', labels: { color: '#94a3b8' } } } }
+            options: {
+                responsive: true,
+                aspectRatio: 2,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: isLight ? '#475569' : '#94a3b8' }
+                    }
+                }
+            }
         });
     }
 
@@ -449,17 +557,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.querySelector('#scorecard-table tbody');
         const thead = document.querySelector('#scorecard-table thead');
 
+        const t = translations[currentLang];
         thead.innerHTML = `
             <tr>
-                <th>IMEI</th>
-                <th>Score</th>
-                <th>Odometer OK %</th>
-                <th>CAN Bus %</th>
-                <th>LastFix OK %</th>
-                <th>Distance (km)</th>
-                <th>RPM Anormal</th>
-                <th>Events Harsh</th>
-                <th>Ignition Balance</th>
+                <th>${t.th_imei}</th>
+                <th>${t.th_score}</th>
+                <th>${t.th_odo_ok}</th>
+                <th>${t.th_can_ok}</th>
+                <th>${t.th_fix_ok}</th>
+                <th>${t.th_dist}</th>
+                <th>${t.th_rpm}</th>
+                <th>${t.th_harsh}</th>
+                <th>${t.th_ignition}</th>
             </tr>
         `;
 
@@ -487,19 +596,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.querySelector('#stats-table tbody');
         const thead = document.querySelector('#stats-table thead');
 
+        const t = translations[currentLang];
         thead.innerHTML = `
             <tr>
-                <th>IMEI</th>
-                <th>First Report</th>
-                <th>Last Report</th>
-                <th>Total Reports</th>
-                <th>Start KM</th>
-                <th>End KM</th>
-                <th>Distance (KM)</th>
-                <th>Avg Speed</th>
-                <th>Max Speed</th>
-                <th>Avg RPM</th>
-                <th>Avg Fuel %</th>
+                <th>${t.th_imei}</th>
+                <th>${t.th_first}</th>
+                <th>${t.th_last}</th>
+                <th>${t.th_total}</th>
+                <th>${t.th_start_km}</th>
+                <th>${t.th_end_km}</th>
+                <th>${t.th_dist}</th>
+                <th>${t.th_avg_speed}</th>
+                <th>${t.th_max_speed}</th>
+                <th>${t.th_avg_rpm}</th>
+                <th>${t.th_fuel}</th>
             </tr>
         `;
 

@@ -150,7 +150,13 @@ def process_log_data(logs_data, filename):
                     'totalDistance': canbus.get('totalDistance'),
                     'totalFuelUsed': canbus.get('totalFuelUsed'),
                     'fuelLevelInput': canbus.get('fuelLevelInput'),
-                    'event_type': event.get('type')
+                    'event_type': event.get('type'),
+                    # Data Quality Flags
+                    'has_ignition': addons.get('ignitionOn') is not None,
+                    'has_fuel': canbus.get('fuelLevelInput') is not None,
+                    'has_odo': canbus.get('totalDistance') is not None,
+                    'has_rpm': canbus.get('engineRPM') is not None,
+                    'gps_ok': point.get('quality') == 'Good'
                 })
             
             if 'insertId' in log_entry:
@@ -300,6 +306,17 @@ def process_log_data(logs_data, filename):
     scorecard['Puntaje_Calidad'] = scorecard['Puntaje_Calidad'].clip(lower=0).round(2)
     scorecard = scorecard.sort_values('Puntaje_Calidad', ascending=False)
 
+    # --- ADVANCED ANALYTICS (Data Quality Radar) ---
+    # Overall Completeness
+    quality_metrics = {
+        'gps_validity': (df['gps_ok'].sum() / len(df) * 100),
+        'ignition_completeness': (df['has_ignition'].sum() / len(df) * 100),
+        'fuel_completeness': (df['has_fuel'].sum() / len(df) * 100),
+        'odo_completeness': (df['has_odo'].sum() / len(df) * 100),
+        'rpm_completeness': (df['has_rpm'].sum() / len(df) * 100)
+    }
+
+    # Per Imei Chart Data logic moved to JS essentially, but we summary here
     # --- FINAL OUTPUT CONSTRUCTION ---
     
     # General Stats
@@ -322,8 +339,8 @@ def process_log_data(logs_data, filename):
         "summary": summary,
         "scorecard": clean_df_for_json(scorecard),
         "stats_per_imei": clean_df_for_json(stats),
-        "raw_data_sample": clean_df_for_json(df.head(1000)), # Send first 1000 for preview
-        # We can also aggregate data for charts here if needed
+        "raw_data_sample": clean_df_for_json(df.head(1000)), 
+        "data_quality": quality_metrics, # New Radar Data
         "chart_data": {
             "score_distribution": scorecard['Puntaje_Calidad'].tolist(),
             "events_summary": df['event_type'].value_counts().to_dict()
