@@ -541,3 +541,82 @@ td {
     background: var(--border-color);
     border-radius: 4px;
 }
+
+/* Sortable Table Headers */
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 2rem;
+}
+
+th.sortable:hover {
+    color: var(--accent);
+}
+
+th.sortable::after {
+    content: '⇅';
+    position: absolute;
+    right: 0.5rem;
+    opacity: 0.3;
+    font-size: 0.75rem;
+}
+
+th.sortable.sort-asc::after {
+    content: '↑';
+    opacity: 1;
+    color: var(--accent);
+}
+
+th.sortable.sort-desc::after {
+    content: '↓';
+    opacity: 1;
+    color: var(--accent);
+}
+
+/* Clickable IMEI */
+.imei-link {
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    transition: color 0.2s;
+}
+
+.imei-link:hover {
+    color: var(--accent-hover);
+    text-decoration-style: solid;
+}
+
+/* History Edit */
+.history-edit {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+    border-radius: 4px;
+    margin-right: 4px;
+}
+
+.history-item:hover .history-edit {
+    opacity: 1;
+}
+
+.history-edit:hover {
+    color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.history-item input.edit-input {
+    background: var(--bg-body);
+    border: 1px solid var(--accent);
+    color: var(--text-primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    width: 100%;
+    outline: none;
+}

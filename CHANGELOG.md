@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0] - 2026-02-04
+### Added
+- **Version Display**: Version number now visible in the top bar for easy reference.
+- **Table Sorting**: Click any column header in Scorecard and Statistics tables to sort ascending/descending.
+- **Clickable IMEI Links**: IMEI values in tables are now clickable to instantly filter the dashboard for that device.
+- **History Name Editing**: Edit history item names inline by clicking the edit icon.
+- **Map Event Markers**: Events (Ignition On/Off, Harsh Behavior, SOS) now appear as color-coded pins on the map with detailed popups.
+  - 🟢 Green: Ignition On
+  - 🔴 Red: Ignition Off
+  - ⚠️ Orange: Harsh Behavior (Breaking, Acceleration, Turn)
+  - 🆘 Dark Red: SOS Events
+
+### Improved
+- **File Cleanup**: Deleting a history record now removes all associated files from uploads and processed directories.
+- **User Experience**: Enhanced table interactivity and visual feedback.
+
 ## [2.2.0] - 2026-02-04
 ### Fixed
 - **System Stability**: Implemented automatic state reset (filters, search, tabs) when loading new files or history records.

@@ -400,6 +400,7 @@ def upload_file():
         history_entry = {
             "id": result_id,
             "filename": filename,
+            "original_filename": filename,
             "summary": result['summary']
         }
         save_history_entry(history_entry)
@@ -421,20 +422,54 @@ def get_result(id):
 @app.route('/api/history/<id>', methods=['DELETE'])
 def delete_history_item(id):
     history = load_history()
-    new_history = [item for item in history if item['id'] != id]
-    if len(history) == len(new_history):
+    item_to_delete = next((item for item in history if item['id'] == id), None)
+    if not item_to_delete:
         return jsonify({"error": "Item not found"}), 404
-        
+    
+    new_history = [item for item in history if item['id'] != id]
+    
+    # Save updated history
     with open(HISTORY_FILE, 'w') as f:
         json.dump(new_history, f, indent=2)
-        
-    # Optional: Delete the processed file associated with it
+    
+    # Delete processed file
     try:
         os.remove(os.path.join(PROCESSED_FOLDER, f"{id}.json"))
     except OSError:
-        pass # File might be already gone or permission issue
-        
+        pass
+    
+    # Delete original upload file
+    try:
+        original_filename = item_to_delete.get('original_filename', item_to_delete.get('filename'))
+        if original_filename:
+            os.remove(os.path.join(UPLOAD_FOLDER, original_filename))
+    except OSError:
+        pass
+    
     return jsonify({"success": True})
+
+@app.route('/api/history/<id>', methods=['PATCH'])
+def update_history_item(id):
+    data = request.get_json()
+    if not data or 'filename' not in data:
+        return jsonify({"error": "Missing filename"}), 400
+    
+    history = load_history()
+    updated = False
+    
+    for item in history:
+        if item['id'] == id:
+            item['filename'] = data['filename']
+            updated = True
+            break
+    
+    if not updated:
+        return jsonify({"error": "Item not found"}), 404
+    
+    with open(HISTORY_FILE, 'w') as f:
+        json.dump(history, f, indent=2)
+    
+    return jsonify({"success": True, "filename": data['filename']})
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000)

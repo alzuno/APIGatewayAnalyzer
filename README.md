@@ -7,24 +7,31 @@ A powerful web application for analyzing GPS telemetry JSON logs, visualizing de
 ## Features
 
 *   **📊 Comprehensive Scorecards**: Analyze device performance with metrics like Odometer accuracy, CAN Bus stability, and Event quality.
-*   **🌍 Localization (New!)**: Toggle between **English** and **Spanish** instantly.
-## Key Features
-- **v2.1 Forensic Intelligence**: Advanced detection of frozen RPM, static Temperature, and static Speed data.
-- **v2.0 Forensic Scorecard**: Deep analysis of Odometer quality (frozen/decreasing) and CAN Bus completeness (6 nodes).
-- **GPS Event Bar Chart**: Real-time breakdown of Ignition, Harsh Driving, and SOS events (fixed mapping).
-- **Driver ID Tracking**: Integrated view of driver identities in statistics and scorecard.
-- **Data Quality Radar**: Visualizes API completeness for the entire device fleet.
-- **Bilingual (EN/ES)**: Complete localization for global operations.
-- **Dockerized**: Easy deployment for any environment.
+*   **🌍 Localization**: Toggle between **English** and **Spanish** instantly.
+*   **🗺️ Interactive Map**:
     *   **Auto-Zoom**: Automatically focuses on the selected device's route.
+    *   **Event Markers** (v2.3): Color-coded pins for Ignition On/Off, Harsh Behavior, and SOS events.
     *   **Smart Themes**: Map tiles adapt to System/Light/Dark mode preferences.
     *   **Path Visualization**: Full route plotting for individual devices.
+*   **📋 Enhanced Tables** (v2.3):
+    *   **Sortable Columns**: Click any header to sort data ascending/descending.
+    *   **Clickable IMEIs**: Filter dashboard instantly by clicking device identifiers.
 *   **🌓 Theme Support**: Built-in Dark and Light modes with "Auto" system detection.
 *   **📂 Data Management**:
     *   **Drag & Drop Upload**: Easy JSON processing.
+    *   **Editable History** (v2.3): Rename past reports inline.
     *   **Persistent History**: Access past reports anytime.
     *   **CSV Export**: Download raw data for external analysis.
 *   **🐳 Docker Ready**: Containerized for easy deployment and persistence.
+
+## Key Capabilities
+
+- **v2.3 UX Enhancements**: Table sorting, clickable IMEIs, editable history names, and map event pins.
+- **v2.1 Forensic Intelligence**: Advanced detection of frozen RPM, static Temperature, and static Speed data.
+- **v2.0 Forensic Scorecard**: Deep analysis of Odometer quality (frozen/decreasing) and CAN Bus completeness (6 nodes).
+- **GPS Event Bar Chart**: Real-time breakdown of Ignition, Harsh Driving, and SOS events.
+- **Driver ID Tracking**: Integrated view of driver identities in statistics and scorecard.
+- **Data Quality Radar**: Visualizes API completeness for the entire device fleet.
 
 ## 🚀 Getting Started
 

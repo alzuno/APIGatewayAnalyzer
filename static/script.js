@@ -233,20 +233,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="filename" title="${item.filename}">${item.filename}</span>
                         <span class="meta">${new Date(item.summary.processed_at).toLocaleDateString()} • Score: ${item.summary.average_quality_score}</span>
                     </div>
-                    <button class="history-delete" title="Delete record" data-id="${item.id}">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="history-edit" title="Edit name" data-id="${item.id}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                        <button class="history-delete" title="Delete record" data-id="${item.id}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
                 `;
 
                 // Click on item loads it
                 li.querySelector('.history-content').onclick = () => loadResult(item.id);
 
+                // Click on edit
+                li.querySelector('.history-edit').onclick = (e) => {
+                    e.stopPropagation();
+                    editHistoryName(li, item);
+                };
+
                 // Click on delete
                 li.querySelector('.history-delete').onclick = (e) => {
                     e.stopPropagation();
-                    if (confirm('Are you sure you want to delete this record?')) {
+                    if (confirm('Are you sure you want to delete this record? This will also delete all associated files.')) {
                         deleteHistoryItem(item.id);
                     }
                 };
@@ -256,6 +270,56 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.error("Failed to load history", e);
         }
+    }
+
+    function editHistoryName(li, item) {
+        const filenameSpan = li.querySelector('.filename');
+        const currentName = filenameSpan.textContent;
+
+        // Create input
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'edit-input';
+        input.value = currentName;
+
+        // Replace span with input
+        filenameSpan.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const saveEdit = async () => {
+            const newName = input.value.trim();
+            if (newName && newName !== currentName) {
+                try {
+                    const res = await fetch(`/api/history/${item.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filename: newName })
+                    });
+
+                    if (res.ok) {
+                        loadHistory(); // Reload to show updated name
+                    } else {
+                        alert('Failed to update name');
+                        loadHistory();
+                    }
+                } catch (e) {
+                    alert('Error updating name');
+                    loadHistory();
+                }
+            } else {
+                loadHistory(); // Cancel - reload original
+            }
+        };
+
+        input.onblur = saveEdit;
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                saveEdit();
+            } else if (e.key === 'Escape') {
+                loadHistory(); // Cancel
+            }
+        };
     }
 
     async function deleteHistoryItem(id) {
@@ -389,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedImei = 'all';
         document.getElementById('search-scorecard').value = '';
         document.getElementById('search-stats').value = '';
-        
+
         // Reset Tab View
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
@@ -568,16 +632,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         thead.innerHTML = `
             <tr>
-                <th>${t.th_imei}</th>
-                <th>${t.th_driver_id}</th>
-                <th>${t.th_score}</th>
-                <th>${t.th_total_reports}</th>
-                <th>${t.th_dist}</th>
-                <th>${t.th_odo_quality}</th>
-                <th>${t.th_delay_avg}</th>
-                <th>${t.th_harsh}</th>
-                <th>${t.th_ign_balance}</th>
-                <th>${t.th_canbus_comp}</th>
+                <th class="sortable" data-column="imei">${t.th_imei}</th>
+                <th class="sortable" data-column="Driver_ID">${t.th_driver_id}</th>
+                <th class="sortable" data-column="Puntaje_Calidad">${t.th_score}</th>
+                <th class="sortable" data-column="Total_Reportes">${t.th_total_reports}</th>
+                <th class="sortable" data-column="Distancia_Recorrida_(KM)">${t.th_dist}</th>
+                <th class="sortable" data-column="Odo_Quality_Score">${t.th_odo_quality}</th>
+                <th class="sortable" data-column="Delay_Avg">${t.th_delay_avg}</th>
+                <th class="sortable" data-column="Harsh_Events">${t.th_harsh}</th>
+                <th class="sortable" data-column="Ignition_Balance">${t.th_ign_balance}</th>
+                <th class="sortable" data-column="Canbus_Completeness">${t.th_canbus_comp}</th>
                 <th>${t.th_frozen_sensors}</th>
                 <th>${t.th_lat_lng_var}</th>
             </tr>
@@ -590,7 +654,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tbody.innerHTML = rows.map(row => `
             <tr>
-                <td>${row.imei}</td>
+                <td><span class="imei-link" data-imei="${row.imei}">${row.imei}</span></td>
                 <td><span class="badge ${row.Driver_ID !== 'N/A' ? 'badge-success' : 'badge-warning'}">${row.Driver_ID}</span></td>
                 <td style="font-weight:bold; color:${row.Puntaje_Calidad > 80 ? '#10b981' : (row.Puntaje_Calidad > 60 ? '#f59e0b' : '#ef4444')}">${row.Puntaje_Calidad}</td>
                 <td>${row.Total_Reportes}</td>
@@ -604,6 +668,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><span class="badge ${row.Lat_Lng_Correct_Variation === 'OK' ? 'badge-success' : 'badge-danger'}">${row.Lat_Lng_Correct_Variation}</span></td>
             </tr>
         `).join('');
+
+        // Add click handlers for IMEI links
+        tbody.querySelectorAll('.imei-link').forEach(link => {
+            link.onclick = () => {
+                const imei = link.dataset.imei;
+                imeiFilter.value = imei;
+                selectedImei = imei;
+                updateDashboardView();
+            };
+        });
+
+        // Add sorting to headers
+        makeSortable('scorecard-table', rows, renderScorecardTable);
     }
 
     function renderStatsTable(rows) {
@@ -613,22 +690,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         thead.innerHTML = `
             <tr>
-                <th>${t.th_imei}</th>
-                <th>${t.th_driver_id}</th>
-                <th>${t.th_first}</th>
-                <th>${t.th_last}</th>
-                <th>${t.th_avg_delay}</th>
-                <th>${t.th_start_km}</th>
-                <th>${t.th_end_km}</th>
-                <th>${t.th_dist}</th>
-                <th>${t.th_avg_speed}</th>
-                <th>${t.th_max_speed}</th>
-                <th>${t.th_total_reports}</th>
-                <th>${t.th_avg_rpm}</th>
-                <th>${t.th_fuel}</th>
-                <th>${t.th_ign_off}</th>
-                <th>${t.th_ign_on}</th>
-                <th>${t.th_harsh_counts}</th>
+                <th class="sortable" data-column="imei">${t.th_imei}</th>
+                <th class="sortable" data-column="Driver_ID">${t.th_driver_id}</th>
+                <th class="sortable" data-column="Primer_Reporte">${t.th_first}</th>
+                <th class="sortable" data-column="Ultimo_Reporte">${t.th_last}</th>
+                <th class="sortable" data-column="Delay_Avg">${t.th_avg_delay}</th>
+                <th class="sortable" data-column="KM_Inicial">${t.th_start_km}</th>
+                <th class="sortable" data-column="KM_Final">${t.th_end_km}</th>
+                <th class="sortable" data-column="Distancia_Recorrida_(KM)">${t.th_dist}</th>
+                <th class="sortable" data-column="Velocidad_Promedio_(KPH)">${t.th_avg_speed}</th>
+                <th class="sortable" data-column="Velocidad_Maxima_(KPH)">${t.th_max_speed}</th>
+                <th class="sortable" data-column="Total_Reportes">${t.th_total_reports}</th>
+                <th class="sortable" data-column="RPM_Promedio">${t.th_avg_rpm}</th>
+                <th class="sortable" data-column="Nivel_Combustible_Promedio_%">${t.th_fuel}</th>
+                <th class="sortable" data-column="Ignition_Off">${t.th_ign_off}</th>
+                <th class="sortable" data-column="Ignition_On">${t.th_ign_on}</th>
+                <th class="sortable" data-column="Harsh_Events">${t.th_harsh_counts}</th>
             </tr>
         `;
 
@@ -639,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tbody.innerHTML = rows.map(row => `
             <tr>
-                <td>${row.imei}</td>
+                <td><span class="imei-link" data-imei="${row.imei}">${row.imei}</span></td>
                 <td>${row.Driver_ID}</td>
                 <td>${new Date(row.Primer_Reporte).toLocaleString()}</td>
                 <td>${new Date(row.Ultimo_Reporte).toLocaleString()}</td>
@@ -657,6 +734,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${row.Harsh_Events}</td>
             </tr>
         `).join('');
+
+        // Add click handlers for IMEI links
+        tbody.querySelectorAll('.imei-link').forEach(link => {
+            link.onclick = () => {
+                const imei = link.dataset.imei;
+                imeiFilter.value = imei;
+                selectedImei = imei;
+                updateDashboardView();
+            };
+        });
+
+        // Add sorting to headers
+        makeSortable('stats-table', rows, renderStatsTable);
     }
 
     function renderMap(rows) {
@@ -710,6 +800,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if (start) mapMarkers.push(L.marker([start.lat, start.lng]).addTo(mapInstance).bindPopup("Start"));
             if (end) mapMarkers.push(L.marker([end.lat, end.lng]).addTo(mapInstance).bindPopup("End"));
 
+            // Add Event Markers
+            const eventPoints = points.filter(p => p.event_type && p.event_type !== 'null' && p.event_type !== null);
+
+            eventPoints.forEach(point => {
+                let color = '#94a3b8'; // Default gray
+                let icon = '📍';
+
+                // Determine color and icon based on event type
+                switch (point.event_type) {
+                    case 'Ignition On':
+                        color = '#10b981'; // Green
+                        icon = '🟢';
+                        break;
+                    case 'Ignition Off':
+                        color = '#ef4444'; // Red
+                        icon = '🔴';
+                        break;
+                    case 'Harsh Breaking':
+                    case 'Harsh Acceleration':
+                    case 'Harsh Turn':
+                        color = '#f59e0b'; // Orange
+                        icon = '⚠️';
+                        break;
+                    case 'SOS':
+                        color = '#dc2626'; // Dark red
+                        icon = '🆘';
+                        break;
+                }
+
+                const eventMarker = L.circleMarker([point.lat, point.lng], {
+                    radius: 6,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.8,
+                    weight: 2
+                }).bindPopup(`
+                    <b>${icon} ${point.event_type}</b><br>
+                    Time: ${point.time}<br>
+                    Speed: ${point.speed || 'N/A'} km/h
+                `);
+
+                eventMarker.addTo(mapInstance);
+                mapMarkers.push(eventMarker);
+            });
+
             mapInstance.fitBounds(bounds, { padding: [50, 50] });
         }
 
@@ -742,6 +877,59 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     setupSearch('search-scorecard', 'scorecard-table');
     setupSearch('search-stats', 'stats-table');
+
+    // Table Sorting Utility
+    function makeSortable(tableId, data, renderFunction) {
+        const table = document.getElementById(tableId);
+        const headers = table.querySelectorAll('th.sortable');
+
+        headers.forEach(header => {
+            header.onclick = () => {
+                const column = header.dataset.column;
+                const currentSort = header.classList.contains('sort-asc') ? 'asc' :
+                    header.classList.contains('sort-desc') ? 'desc' : 'none';
+
+                // Remove sort classes from all headers
+                headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+
+                // Determine new sort direction
+                let newSort = 'asc';
+                if (currentSort === 'asc') newSort = 'desc';
+
+                // Add appropriate class
+                header.classList.add(`sort-${newSort}`);
+
+                // Sort data
+                const sortedData = [...data].sort((a, b) => {
+                    let aVal = a[column];
+                    let bVal = b[column];
+
+                    // Handle null/undefined
+                    if (aVal == null) return 1;
+                    if (bVal == null) return -1;
+
+                    // Handle dates
+                    if (column.includes('Reporte') || column.includes('time')) {
+                        aVal = new Date(aVal);
+                        bVal = new Date(bVal);
+                    }
+
+                    // Compare
+                    if (typeof aVal === 'string') {
+                        aVal = aVal.toLowerCase();
+                        bVal = bVal.toLowerCase();
+                    }
+
+                    if (aVal < bVal) return newSort === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return newSort === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                // Re-render with sorted data
+                renderFunction(sortedData);
+            };
+        });
+    }
 
     function renderRawTable(rows) {
         const table = document.getElementById('raw-table');
