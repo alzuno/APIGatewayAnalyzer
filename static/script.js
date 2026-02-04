@@ -385,6 +385,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Rendering ---
     function renderDashboard(data) {
+        // Reset State for Stability
+        selectedImei = 'all';
+        document.getElementById('search-scorecard').value = '';
+        document.getElementById('search-stats').value = '';
+        
+        // Reset Tab View
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.querySelector('[data-tab="scorecard"]').classList.add('active');
+        document.getElementById('tab-scorecard').classList.remove('hidden');
+
         emptyState.classList.add('hidden');
         dashboard.classList.remove('hidden');
 
@@ -702,8 +713,15 @@ document.addEventListener('DOMContentLoaded', () => {
             mapInstance.fitBounds(bounds, { padding: [50, 50] });
         }
 
-        // Invalidate size to fix rendering issues in hidden tabs
-        setTimeout(() => mapInstance.invalidateSize(), 200);
+        // Invalidate size and refit bounds to ensure map renders correctly
+        setTimeout(() => {
+            if (mapInstance) {
+                mapInstance.invalidateSize();
+                if (points.length > 0) {
+                    mapInstance.fitBounds(bounds, { padding: [50, 50] });
+                }
+            }
+        }, 300);
     }
 
     // --- Utils ---
@@ -760,7 +778,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Fix Leaflet resize bug when showing hidden map
             if (btn.dataset.tab === 'map' && mapInstance) {
-                setTimeout(() => mapInstance.invalidateSize(), 100);
+                setTimeout(() => {
+                    mapInstance.invalidateSize();
+                    // Re-render map to ensure it fits current data bounds when visible
+                    if (currentData) {
+                        let filteredRaw = currentData.raw_data_sample || [];
+                        if (selectedImei !== 'all') {
+                            filteredRaw = filteredRaw.filter(r => r.imei === selectedImei);
+                        }
+                        renderMap(filteredRaw);
+                    }
+                }, 100);
             }
         };
     });

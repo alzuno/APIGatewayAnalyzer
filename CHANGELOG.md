@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-02-04
+### Fixed
+- **System Stability**: Implemented automatic state reset (filters, search, tabs) when loading new files or history records.
+- **Map Usability**: Improved map auto-centering and bounds fitting when switching between vehicles or tabs.
+- **UI Consistency**: Search fields and IMEI filters are now cleared correctly during fresh data loads.
+
 ## [2.1.0] - 2026-02-01
 ### Added
 - **Forensic Sensor Validation**: Detects frozen RPM, static Temperature, and static Speed data.
