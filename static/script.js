@@ -35,6 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // State
     let currentData = null;
     let selectedImei = 'all';
+    let tableSorts = {
+        'scorecard-table': { column: null, dir: null },
+        'stats-table': { column: null, dir: null }
+    };
 
     // --- Theme Logic ---
     function getSystemTheme() {
@@ -454,6 +458,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('search-scorecard').value = '';
         document.getElementById('search-stats').value = '';
 
+        // Reset Sort State
+        tableSorts = {
+            'scorecard-table': { column: null, dir: null },
+            'stats-table': { column: null, dir: null }
+        };
+
         // Reset Tab View
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
@@ -629,19 +639,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.querySelector('#scorecard-table tbody');
         const thead = document.querySelector('#scorecard-table thead');
         const t = translations[currentLang];
+        const sort = tableSorts['scorecard-table'];
 
         thead.innerHTML = `
             <tr>
-                <th class="sortable" data-column="imei">${t.th_imei}</th>
-                <th class="sortable" data-column="Driver_ID">${t.th_driver_id}</th>
-                <th class="sortable" data-column="Puntaje_Calidad">${t.th_score}</th>
-                <th class="sortable" data-column="Total_Reportes">${t.th_total_reports}</th>
-                <th class="sortable" data-column="Distancia_Recorrida_(KM)">${t.th_dist}</th>
-                <th class="sortable" data-column="Odo_Quality_Score">${t.th_odo_quality}</th>
-                <th class="sortable" data-column="Delay_Avg">${t.th_delay_avg}</th>
-                <th class="sortable" data-column="Harsh_Events">${t.th_harsh}</th>
-                <th class="sortable" data-column="Ignition_Balance">${t.th_ign_balance}</th>
-                <th class="sortable" data-column="Canbus_Completeness">${t.th_canbus_comp}</th>
+                <th class="sortable ${sort.column === 'imei' ? 'sort-' + sort.dir : ''}" data-column="imei">${t.th_imei}</th>
+                <th class="sortable ${sort.column === 'Driver_ID' ? 'sort-' + sort.dir : ''}" data-column="Driver_ID">${t.th_driver_id}</th>
+                <th class="sortable ${sort.column === 'Puntaje_Calidad' ? 'sort-' + sort.dir : ''}" data-column="Puntaje_Calidad">${t.th_score}</th>
+                <th class="sortable ${sort.column === 'Total_Reportes' ? 'sort-' + sort.dir : ''}" data-column="Total_Reportes">${t.th_total_reports}</th>
+                <th class="sortable ${sort.column === 'Distancia_Recorrida_(KM)' ? 'sort-' + sort.dir : ''}" data-column="Distancia_Recorrida_(KM)">${t.th_dist}</th>
+                <th class="sortable ${sort.column === 'Odo_Quality_Score' ? 'sort-' + sort.dir : ''}" data-column="Odo_Quality_Score">${t.th_odo_quality}</th>
+                <th class="sortable ${sort.column === 'Delay_Avg' ? 'sort-' + sort.dir : ''}" data-column="Delay_Avg">${t.th_delay_avg}</th>
+                <th class="sortable ${sort.column === 'Harsh_Events' ? 'sort-' + sort.dir : ''}" data-column="Harsh_Events">${t.th_harsh}</th>
+                <th class="sortable ${sort.column === 'Ignition_Balance' ? 'sort-' + sort.dir : ''}" data-column="Ignition_Balance">${t.th_ign_balance}</th>
+                <th class="sortable ${sort.column === 'Canbus_Completeness' ? 'sort-' + sort.dir : ''}" data-column="Canbus_Completeness">${t.th_canbus_comp}</th>
                 <th>${t.th_frozen_sensors}</th>
                 <th>${t.th_lat_lng_var}</th>
             </tr>
@@ -687,25 +698,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.querySelector('#stats-table tbody');
         const thead = document.querySelector('#stats-table thead');
         const t = translations[currentLang];
+        const sort = tableSorts['stats-table'];
 
         thead.innerHTML = `
             <tr>
-                <th class="sortable" data-column="imei">${t.th_imei}</th>
-                <th class="sortable" data-column="Driver_ID">${t.th_driver_id}</th>
-                <th class="sortable" data-column="Primer_Reporte">${t.th_first}</th>
-                <th class="sortable" data-column="Ultimo_Reporte">${t.th_last}</th>
-                <th class="sortable" data-column="Delay_Avg">${t.th_avg_delay}</th>
-                <th class="sortable" data-column="KM_Inicial">${t.th_start_km}</th>
-                <th class="sortable" data-column="KM_Final">${t.th_end_km}</th>
-                <th class="sortable" data-column="Distancia_Recorrida_(KM)">${t.th_dist}</th>
-                <th class="sortable" data-column="Velocidad_Promedio_(KPH)">${t.th_avg_speed}</th>
-                <th class="sortable" data-column="Velocidad_Maxima_(KPH)">${t.th_max_speed}</th>
-                <th class="sortable" data-column="Total_Reportes">${t.th_total_reports}</th>
-                <th class="sortable" data-column="RPM_Promedio">${t.th_avg_rpm}</th>
-                <th class="sortable" data-column="Nivel_Combustible_Promedio_%">${t.th_fuel}</th>
-                <th class="sortable" data-column="Ignition_Off">${t.th_ign_off}</th>
-                <th class="sortable" data-column="Ignition_On">${t.th_ign_on}</th>
-                <th class="sortable" data-column="Harsh_Events">${t.th_harsh_counts}</th>
+                <th class="sortable ${sort.column === 'imei' ? 'sort-' + sort.dir : ''}" data-column="imei">${t.th_imei}</th>
+                <th class="sortable ${sort.column === 'Driver_ID' ? 'sort-' + sort.dir : ''}" data-column="Driver_ID">${t.th_driver_id}</th>
+                <th class="sortable ${sort.column === 'Primer_Reporte' ? 'sort-' + sort.dir : ''}" data-column="Primer_Reporte">${t.th_first}</th>
+                <th class="sortable ${sort.column === 'Ultimo_Reporte' ? 'sort-' + sort.dir : ''}" data-column="Ultimo_Reporte">${t.th_last}</th>
+                <th class="sortable ${sort.column === 'Delay_Avg' ? 'sort-' + sort.dir : ''}" data-column="Delay_Avg">${t.th_avg_delay}</th>
+                <th class="sortable ${sort.column === 'KM_Inicial' ? 'sort-' + sort.dir : ''}" data-column="KM_Inicial">${t.th_start_km}</th>
+                <th class="sortable ${sort.column === 'KM_Final' ? 'sort-' + sort.dir : ''}" data-column="KM_Final">${t.th_end_km}</th>
+                <th class="sortable ${sort.column === 'Distancia_Recorrida_(KM)' ? 'sort-' + sort.dir : ''}" data-column="Distancia_Recorrida_(KM)">${t.th_dist}</th>
+                <th class="sortable ${sort.column === 'Velocidad_Promedio_(KPH)' ? 'sort-' + sort.dir : ''}" data-column="Velocidad_Promedio_(KPH)">${t.th_avg_speed}</th>
+                <th class="sortable ${sort.column === 'Velocidad_Maxima_(KPH)' ? 'sort-' + sort.dir : ''}" data-column="Velocidad_Maxima_(KPH)">${t.th_max_speed}</th>
+                <th class="sortable ${sort.column === 'Total_Reportes' ? 'sort-' + sort.dir : ''}" data-column="Total_Reportes">${t.th_total_reports}</th>
+                <th class="sortable ${sort.column === 'RPM_Promedio' ? 'sort-' + sort.dir : ''}" data-column="RPM_Promedio">${t.th_avg_rpm}</th>
+                <th class="sortable ${sort.column === 'Nivel_Combustible_Promedio_%' ? 'sort-' + sort.dir : ''}" data-column="Nivel_Combustible_Promedio_%">${t.th_fuel}</th>
+                <th class="sortable ${sort.column === 'Ignition_Off' ? 'sort-' + sort.dir : ''}" data-column="Ignition_Off">${t.th_ign_off}</th>
+                <th class="sortable ${sort.column === 'Ignition_On' ? 'sort-' + sort.dir : ''}" data-column="Ignition_On">${t.th_ign_on}</th>
+                <th class="sortable ${sort.column === 'Harsh_Events' ? 'sort-' + sort.dir : ''}" data-column="Harsh_Events">${t.th_harsh_counts}</th>
             </tr>
         `;
 
@@ -886,18 +898,15 @@ document.addEventListener('DOMContentLoaded', () => {
         headers.forEach(header => {
             header.onclick = () => {
                 const column = header.dataset.column;
-                const currentSort = header.classList.contains('sort-asc') ? 'asc' :
-                    header.classList.contains('sort-desc') ? 'desc' : 'none';
+                let dir = 'asc';
 
-                // Remove sort classes from all headers
-                headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+                // Toggle if already sorting by this column
+                if (tableSorts[tableId].column === column && tableSorts[tableId].dir === 'asc') {
+                    dir = 'desc';
+                }
 
-                // Determine new sort direction
-                let newSort = 'asc';
-                if (currentSort === 'asc') newSort = 'desc';
-
-                // Add appropriate class
-                header.classList.add(`sort-${newSort}`);
+                // Update State
+                tableSorts[tableId] = { column, dir };
 
                 // Sort data
                 const sortedData = [...data].sort((a, b) => {
@@ -920,8 +929,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         bVal = bVal.toLowerCase();
                     }
 
-                    if (aVal < bVal) return newSort === 'asc' ? -1 : 1;
-                    if (aVal > bVal) return newSort === 'asc' ? 1 : -1;
+                    if (aVal < bVal) return dir === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return dir === 'asc' ? 1 : -1;
                     return 0;
                 });
 

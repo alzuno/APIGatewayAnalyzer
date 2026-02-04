@@ -14,6 +14,9 @@ All notable changes to this project will be documented in this file.
   - ⚠️ Orange: Harsh Behavior (Breaking, Acceleration, Turn)
   - 🆘 Dark Red: SOS Events
 
+### Fixed
+- **Table Sorting Toggle**: Fixed a bug where table columns could only be sorted once; they now correctly toggle between ascending and descending order on subsequent clicks.
+
 ### Improved
 - **File Cleanup**: Deleting a history record now removes all associated files from uploads and processed directories.
 - **User Experience**: Enhanced table interactivity and visual feedback.
