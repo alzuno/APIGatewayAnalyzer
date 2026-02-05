@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Commit Guidelines
+
+- Use conventional commit format (feat:, fix:, chore:, docs:, refactor:, test:, etc.)
+- Always version the app, even for minor fixes
+- Do NOT use "Co-Authored-By: Claude..." in commits
+- Always check if documentation (MD files) needs updating
+
+## Version Update Checklist
+
+When releasing a new version, update ALL of these locations:
+1. `app.py` - API version in Flask-RESTX `Api()` constructor (line ~30)
+2. `templates/index.html` - Version badge in the UI header (line ~57)
+3. `CHANGELOG.md` - Add new version entry with changes
+4. `README.md` - Version history section
+
 ## Project Overview
 
 GPS Telemetry Analyzer - A Flask web application for analyzing GPS telemetry JSON logs from vehicle tracking systems. Processes large JSON datasets, calculates device quality scorecards, and visualizes routes on interactive maps.

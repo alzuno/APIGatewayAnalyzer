@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.2] - 2026-02-05
+### Fixed
+- **Flask-RESTX Route Order**: Define index route before Flask-RESTX initialization to ensure proper registration.
+
 ## [3.0.1] - 2026-02-05
 ### Fixed
 - **Render Deployment**: Use `PORT` environment variable for Gunicorn binding (Render assigns dynamic ports).
