@@ -10,3 +10,8 @@ processed/
 jsonfiles/
 history.json
 To - Do
+# Runtime files
+logs/
+*.db
+*.db-journal
+.pytest_cache/
