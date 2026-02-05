@@ -2,39 +2,153 @@ import os
 import json
 import uuid
 import codecs
+import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from collections import Counter
 import pandas as pd
 import numpy as np
 from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask_restx import Api, Resource, Namespace, fields
+from werkzeug.datastructures import FileStorage
+from database import Database, migrate_json_to_sqlite
+from worker import (
+    BackgroundWorker, submit_job, get_job_status,
+    generate_progress_events, should_process_async
+)
 
 app = Flask(__name__)
+
+# Flask-RESTX API setup
+api = Api(
+    app,
+    version='2.3.0',
+    title='GPS Telemetry Analyzer API',
+    description='API for analyzing GPS telemetry JSON logs from vehicle tracking systems',
+    doc='/api/docs'
+)
+
+# Namespaces
+ns_analysis = api.namespace('api', description='Telemetry analysis operations')
 
 # Configuration
 DATA_DIR = os.getenv('DATA_DIR', '.')
 UPLOAD_FOLDER = os.path.join(DATA_DIR, 'uploads')
 PROCESSED_FOLDER = os.path.join(DATA_DIR, 'processed')
 HISTORY_FILE = os.path.join(DATA_DIR, 'history.json')
+LOGS_FOLDER = os.path.join(DATA_DIR, 'logs')
+
+# File size limit
+MAX_UPLOAD_SIZE_MB = int(os.getenv('MAX_UPLOAD_SIZE_MB', 100))
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+os.makedirs(LOGS_FOLDER, exist_ok=True)
 
-if not os.path.exists(HISTORY_FILE):
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump([], f)
+# Initialize SQLite database
+DB_PATH = os.path.join(DATA_DIR, 'telemetry.db')
+db = Database(DB_PATH)
+
+# Initialize background worker (will be started after process_log_data is defined)
+background_worker = None
+
+# Setup logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+file_handler = RotatingFileHandler(
+    os.path.join(LOGS_FOLDER, 'app.log'),
+    maxBytes=10 * 1024 * 1024,  # 10MB
+    backupCount=5
+)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s'
+))
+logger.addHandler(file_handler)
+
+# API Models for Swagger documentation
+summary_model = api.model('Summary', {
+    'filename': fields.String(description='Name of the uploaded file'),
+    'processed_at': fields.String(description='Processing timestamp'),
+    'total_devices': fields.Integer(description='Number of unique devices'),
+    'total_records': fields.Integer(description='Total telemetry records processed'),
+    'total_distance_km': fields.Float(description='Total distance traveled in km'),
+    'average_quality_score': fields.Float(description='Average quality score across devices')
+})
+
+history_entry_model = api.model('HistoryEntry', {
+    'id': fields.String(description='Unique analysis ID'),
+    'filename': fields.String(description='Display name'),
+    'original_filename': fields.String(description='Original uploaded filename'),
+    'summary': fields.Nested(summary_model)
+})
+
+upload_response_model = api.model('UploadResponse', {
+    'id': fields.String(description='Analysis ID'),
+    'data': fields.Raw(description='Full analysis result')
+})
+
+error_model = api.model('Error', {
+    'error': fields.String(description='Error message')
+})
+
+success_model = api.model('Success', {
+    'success': fields.Boolean(description='Operation success status')
+})
+
+rename_model = api.model('RenameInput', {
+    'filename': fields.String(required=True, description='New display name')
+})
+
+job_response_model = api.model('JobResponse', {
+    'job_id': fields.String(description='Background job ID'),
+    'status': fields.String(description='Job status (pending/processing/completed/failed)')
+})
+
+job_status_model = api.model('JobStatus', {
+    'status': fields.String(description='Job status'),
+    'progress': fields.Integer(description='Processing progress (0-100)'),
+    'analysis_id': fields.String(description='Analysis ID when completed'),
+    'error': fields.String(description='Error message if failed'),
+    'data': fields.Raw(description='Analysis result when completed')
+})
+
+# File upload parser
+upload_parser = api.parser()
+upload_parser.add_argument('file', location='files', type=FileStorage, required=True, help='JSON telemetry log file')
+
+# Migrate existing JSON data to SQLite on startup
+if os.path.exists(HISTORY_FILE):
+    try:
+        migrated = migrate_json_to_sqlite(db, HISTORY_FILE, PROCESSED_FOLDER)
+        if migrated > 0:
+            logger.info(f"Migrated {migrated} analyses from JSON to SQLite")
+            # Rename old history file as backup
+            backup_path = HISTORY_FILE + '.backup'
+            if not os.path.exists(backup_path):
+                os.rename(HISTORY_FILE, backup_path)
+                logger.info(f"Created backup at {backup_path}")
+    except Exception as e:
+        logger.warning(f"Migration failed, continuing with JSON fallback: {e}")
 
 def load_history():
+    """Load history from SQLite database."""
     try:
-        with open(HISTORY_FILE, 'r') as f:
-            return json.load(f)
-    except:
+        return db.get_history()
+    except Exception as e:
+        logger.warning(f"Failed to load history from DB: {e}")
+        # Fallback to JSON if database fails
+        if os.path.exists(HISTORY_FILE):
+            try:
+                with open(HISTORY_FILE, 'r') as f:
+                    return json.load(f)
+            except Exception:
+                pass
         return []
 
 def save_history_entry(entry):
-    history = load_history()
-    history.insert(0, entry)
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(history, f, indent=2)
+    """History entries are now managed by database.save_analysis()."""
+    pass  # No longer needed - handled by database
 
 def sanitize_for_json(obj):
     """Recursively convert NaN, Inf, -Inf to None for JSON serialization."""
@@ -139,7 +253,8 @@ def process_log_data(logs_data, filename):
                         parsed_data = json.loads(message_content) if isinstance(message_content, str) else message_content
                         if isinstance(parsed_data, dict): telemetry_list.append(parsed_data)
                         elif isinstance(parsed_data, list): telemetry_list = parsed_data
-            except:
+            except Exception as e:
+                logger.debug(f"Primary JSON parsing failed, trying fallback: {e}")
                 # Fallback extraction
                 start_marker = '\\"message\\":'
                 start_index = additional_info_str.find(start_marker)
@@ -150,7 +265,8 @@ def process_log_data(logs_data, filename):
                         parsed_data, _ = decoder.raw_decode(clean_text)
                         if isinstance(parsed_data, dict): telemetry_list.append(parsed_data)
                         elif isinstance(parsed_data, list): telemetry_list = parsed_data
-                    except: pass
+                    except Exception as e:
+                        logger.debug(f"Fallback JSON parsing failed: {e}")
 
             for point in telemetry_list:
                 if not isinstance(point, dict) or 'imei' not in point: continue
@@ -201,7 +317,8 @@ def process_log_data(logs_data, filename):
                     'has_ignition': addons.get('ignitionOn') is not None,
                     'gps_ok': point.get('quality') == 'Good'
                 })
-        except: pass
+        except Exception as e:
+            logger.warning(f"Failed to process log entry: {e}")
 
     if not all_telemetry_data: return None
 
@@ -355,121 +472,229 @@ def process_log_data(logs_data, filename):
     }
     return sanitize_for_json(result)
 
+@app.before_request
+def check_content_length():
+    if request.content_length and request.content_length > app.config['MAX_CONTENT_LENGTH']:
+        logger.warning(f"File too large: {request.content_length} bytes")
+        return jsonify({"error": f"File too large. Maximum size: {MAX_UPLOAD_SIZE_MB}MB"}), 413
+
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    logger.warning(f"Request entity too large: {error}")
+    return jsonify({"error": f"File too large. Maximum size: {MAX_UPLOAD_SIZE_MB}MB"}), 413
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-        
-    if file:
-        filename = file.filename
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(file_path)
-        
-        # Read and process
-        logs_data = []
+
+@ns_analysis.route('/upload')
+class Upload(Resource):
+    @ns_analysis.doc('upload_file')
+    @ns_analysis.expect(upload_parser)
+    @ns_analysis.response(200, 'Success', upload_response_model)
+    @ns_analysis.response(202, 'Accepted - Processing in background', job_response_model)
+    @ns_analysis.response(400, 'Bad Request', error_model)
+    @ns_analysis.response(413, 'File Too Large', error_model)
+    def post(self):
+        """Upload and process a JSON telemetry log file.
+
+        For files larger than 10MB, processing is done in the background.
+        Returns 202 Accepted with a job_id that can be used to track progress.
+        """
+        if 'file' not in request.files:
+            return {"error": "No file part"}, 400
+        file = request.files['file']
+        if file.filename == '':
+            return {"error": "No selected file"}, 400
+
+        if file:
+            filename = file.filename
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(file_path)
+
+            # Check file size for async processing
+            file_size = os.path.getsize(file_path)
+            if should_process_async(file_size):
+                # Process large files in background
+                job_id = submit_job(file_path, filename, db)
+                logger.info(f"Large file ({file_size} bytes), processing async: job {job_id}")
+                return {"job_id": job_id, "status": "pending"}, 202
+
+            # Synchronous processing for smaller files
+            logs_data = []
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    logs_data = json.load(f)
+            except json.JSONDecodeError:
+                # Try line by line
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if line.strip():
+                            try:
+                                logs_data.append(json.loads(line))
+                            except Exception as e:
+                                logger.debug(f"Failed to parse line as JSON: {e}")
+
+            result = process_log_data(logs_data, filename)
+            if not result:
+                return {"error": "No valid telemetry data found"}, 400
+
+            # Save Result to SQLite
+            result_id = str(uuid.uuid4())
+            try:
+                db.save_analysis(result_id, result)
+                logger.info(f"Saved analysis {result_id} to database")
+            except Exception as e:
+                logger.error(f"Failed to save to database: {e}")
+                # Fallback to JSON file
+                result_filename = f"{result_id}.json"
+                with open(os.path.join(PROCESSED_FOLDER, result_filename), 'w') as f:
+                    json.dump(result, f, indent=2)
+
+            return {"id": result_id, "data": result}
+
+
+@ns_analysis.route('/history')
+class HistoryList(Resource):
+    @ns_analysis.doc('list_history')
+    @ns_analysis.response(200, 'Success', [history_entry_model])
+    def get(self):
+        """List all past analyses"""
+        return load_history()
+
+
+@ns_analysis.route('/result/<string:id>')
+@ns_analysis.param('id', 'The analysis identifier')
+class Result(Resource):
+    @ns_analysis.doc('get_result')
+    @ns_analysis.response(200, 'Success')
+    @ns_analysis.response(404, 'Not Found', error_model)
+    def get(self, id):
+        """Retrieve a cached analysis result by ID"""
+        # Try SQLite first
+        result = db.get_analysis(id)
+        if result:
+            return result
+
+        # Fallback to JSON file
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                logs_data = json.load(f)
-        except json.JSONDecodeError:
-             # Try line by line
-             with open(file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            logs_data.append(json.loads(line))
-                        except: pass
-        
-        result = process_log_data(logs_data, filename)
-        if not result:
-            return jsonify({"error": "No valid telemetry data found"}), 400
-            
-        # Save Result
-        result_id = str(uuid.uuid4())
-        result_filename = f"{result_id}.json"
-        with open(os.path.join(PROCESSED_FOLDER, result_filename), 'w') as f:
-            json.dump(result, f, indent=2) # Save full result
-            
-        # Update History
-        history_entry = {
-            "id": result_id,
-            "filename": filename,
-            "original_filename": filename,
-            "summary": result['summary']
-        }
-        save_history_entry(history_entry)
-        
-        return jsonify({"id": result_id, "data": result})
+            with open(os.path.join(PROCESSED_FOLDER, f"{id}.json"), 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {"error": "Result not found"}, 404
 
-@app.route('/api/history', methods=['GET'])
-def get_history():
-    return jsonify(load_history())
 
-@app.route('/api/result/<id>', methods=['GET'])
-def get_result(id):
-    try:
-        with open(os.path.join(PROCESSED_FOLDER, f"{id}.json"), 'r') as f:
-            return jsonify(json.load(f))
-    except FileNotFoundError:
-        return jsonify({"error": "Result not found"}), 404
+@ns_analysis.route('/history/<string:id>')
+@ns_analysis.param('id', 'The analysis identifier')
+class HistoryItem(Resource):
+    @ns_analysis.doc('delete_history_item')
+    @ns_analysis.response(200, 'Success', success_model)
+    @ns_analysis.response(404, 'Not Found', error_model)
+    def delete(self, id):
+        """Delete an analysis and its associated files"""
+        # Try SQLite first
+        original_filename = db.delete_analysis(id)
 
-@app.route('/api/history/<id>', methods=['DELETE'])
-def delete_history_item(id):
-    history = load_history()
-    item_to_delete = next((item for item in history if item['id'] == id), None)
-    if not item_to_delete:
-        return jsonify({"error": "Item not found"}), 404
-    
-    new_history = [item for item in history if item['id'] != id]
-    
-    # Save updated history
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(new_history, f, indent=2)
-    
-    # Delete processed file
-    try:
-        os.remove(os.path.join(PROCESSED_FOLDER, f"{id}.json"))
-    except OSError:
-        pass
-    
-    # Delete original upload file
-    try:
-        original_filename = item_to_delete.get('original_filename', item_to_delete.get('filename'))
         if original_filename:
-            os.remove(os.path.join(UPLOAD_FOLDER, original_filename))
-    except OSError:
-        pass
-    
-    return jsonify({"success": True})
+            # Delete original upload file
+            try:
+                os.remove(os.path.join(UPLOAD_FOLDER, original_filename))
+            except OSError:
+                pass
+            logger.info(f"Deleted analysis {id} from database")
+            return {"success": True}
 
-@app.route('/api/history/<id>', methods=['PATCH'])
-def update_history_item(id):
-    data = request.get_json()
-    if not data or 'filename' not in data:
-        return jsonify({"error": "Missing filename"}), 400
-    
-    history = load_history()
-    updated = False
-    
-    for item in history:
-        if item['id'] == id:
-            item['filename'] = data['filename']
-            updated = True
-            break
-    
-    if not updated:
-        return jsonify({"error": "Item not found"}), 404
-    
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(history, f, indent=2)
-    
-    return jsonify({"success": True, "filename": data['filename']})
+        # Fallback to JSON-based history
+        history = load_history()
+        item_to_delete = next((item for item in history if item['id'] == id), None)
+        if not item_to_delete:
+            return {"error": "Item not found"}, 404
+
+        # Delete processed JSON file
+        try:
+            os.remove(os.path.join(PROCESSED_FOLDER, f"{id}.json"))
+        except OSError:
+            pass
+
+        # Delete original upload file
+        try:
+            original_filename = item_to_delete.get('original_filename', item_to_delete.get('filename'))
+            if original_filename:
+                os.remove(os.path.join(UPLOAD_FOLDER, original_filename))
+        except OSError:
+            pass
+
+        return {"success": True}
+
+    @ns_analysis.doc('update_history_item')
+    @ns_analysis.expect(rename_model)
+    @ns_analysis.response(200, 'Success')
+    @ns_analysis.response(400, 'Bad Request', error_model)
+    @ns_analysis.response(404, 'Not Found', error_model)
+    def patch(self, id):
+        """Rename a history entry"""
+        data = request.get_json()
+        if not data or 'filename' not in data:
+            return {"error": "Missing filename"}, 400
+
+        new_filename = data['filename']
+
+        # Try SQLite first
+        if db.update_filename(id, new_filename):
+            logger.info(f"Updated filename for {id} to {new_filename}")
+            return {"success": True, "filename": new_filename}
+
+        # Analysis not in database
+        return {"error": "Item not found"}, 404
+
+
+@ns_analysis.route('/job/<string:job_id>')
+@ns_analysis.param('job_id', 'The job identifier')
+class JobStatus(Resource):
+    @ns_analysis.doc('get_job_status')
+    @ns_analysis.response(200, 'Success', job_status_model)
+    @ns_analysis.response(404, 'Not Found', error_model)
+    def get(self, job_id):
+        """Get the status of a background processing job"""
+        status = get_job_status(job_id, db)
+        if not status:
+            return {"error": "Job not found"}, 404
+        return status
+
+
+@ns_analysis.route('/job/<string:job_id>/progress')
+@ns_analysis.param('job_id', 'The job identifier')
+class JobProgress(Resource):
+    @ns_analysis.doc('get_job_progress_sse')
+    @ns_analysis.response(200, 'SSE stream of progress updates')
+    @ns_analysis.response(404, 'Not Found', error_model)
+    def get(self, job_id):
+        """Get real-time progress updates via Server-Sent Events"""
+        from flask import Response
+
+        # Verify job exists
+        status = get_job_status(job_id, db)
+        if not status:
+            return {"error": "Job not found"}, 404
+
+        return Response(
+            generate_progress_events(job_id, db),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'
+            }
+        )
+
+
+# Initialize and start background worker
+background_worker = BackgroundWorker(process_log_data, db)
+background_worker.start()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000)

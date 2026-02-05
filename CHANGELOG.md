@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-02-05
+### Added
+- **Logging System**: Rotating file logger with 10MB max size and 5 backups at `data/logs/app.log`.
+- **File Size Limit**: Configurable upload limit via `MAX_UPLOAD_SIZE_MB` environment variable (default: 100MB).
+- **Skeleton Loaders**: Visual loading placeholders for better UX during file processing.
+- **Test Suite**: 42 pytest tests covering event normalization, JSON sanitization, and scoring logic.
+- **API Documentation**: Swagger UI available at `/api/docs` via Flask-RESTX.
+- **SQLite Database**: Migrated from JSON files to SQLite for better performance and reliability.
+  - Auto-migration of existing JSON data on startup
+  - Backup created at `history.json.backup`
+- **Background Processing**: Large files (>10MB) processed asynchronously with real-time progress via Server-Sent Events.
+  - New endpoints: `GET /api/job/<id>` and `GET /api/job/<id>/progress`
+  - Returns 202 Accepted for async jobs with job_id
+- **Modular Frontend**: Split `script.js` into 8 modules using `window.GPSAnalyzer` namespace:
+  - `app.js` - Main application state
+  - `utils.js` - Loader and skeleton functions
+  - `theme.js` - Theme management
+  - `localization.js` - EN/ES translations
+  - `api.js` - API communication
+  - `charts.js` - Chart.js rendering
+  - `tables.js` - Table rendering and sorting
+  - `map.js` - Leaflet map rendering
+
+### Changed
+- **Exception Handling**: Replaced 4 bare `except:` blocks with proper logging.
+- **API Structure**: Endpoints now use Flask-RESTX Resource classes with full documentation.
+
+### New Files
+- `database.py` - SQLite access layer
+- `schema.sql` - Database schema (6 tables)
+- `worker.py` - Background processing worker
+- `pytest.ini` - Test configuration
+- `requirements-dev.txt` - Development dependencies
+- `tests/` - Test directory with fixtures
+- `static/js/` - 8 modular JavaScript files
+
 ## [2.3.0] - 2026-02-04
 ### Added
 - **Version Display**: Version number now visible in the top bar for easy reference.

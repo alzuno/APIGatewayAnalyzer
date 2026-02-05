@@ -416,6 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         showLoader(true);
+        showSkeletons();
         const formData = new FormData();
         formData.append('file', file);
 
@@ -425,26 +426,161 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
 
-            if (!res.ok) throw new Error("Upload failed");
+            // Handle async processing (202 Accepted)
+            if (res.status === 202) {
+                const jobData = await res.json();
+                await pollJobProgress(jobData.job_id);
+                return;
+            }
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Upload failed");
+            }
 
             const data = await res.json();
+            hideSkeletons();
             renderDashboard(data.data);
             loadHistory(); // Refresh history
         } catch (e) {
+            hideSkeletons();
+            emptyState.classList.remove('hidden');
+            dashboard.classList.add('hidden');
             alert("Error processing file: " + e.message);
         } finally {
             showLoader(false);
         }
     }
 
+    async function pollJobProgress(jobId) {
+        // Use Server-Sent Events for real-time updates
+        const eventSource = new EventSource(`/api/job/${jobId}/progress`);
+
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.error) {
+                eventSource.close();
+                hideSkeletons();
+                emptyState.classList.remove('hidden');
+                dashboard.classList.add('hidden');
+                showLoader(false);
+                alert("Processing error: " + data.error);
+                return;
+            }
+
+            // Update progress indicator in loader
+            const loaderText = loader.querySelector('p');
+            if (loaderText) {
+                loaderText.textContent = `${translations[currentLang].processing} ${data.progress}%`;
+            }
+
+            if (data.status === 'completed') {
+                eventSource.close();
+                hideSkeletons();
+                showLoader(false);
+
+                if (data.data) {
+                    renderDashboard(data.data);
+                } else if (data.analysis_id) {
+                    // Load result by ID
+                    loadResult(data.analysis_id);
+                }
+                loadHistory();
+            } else if (data.status === 'failed') {
+                eventSource.close();
+                hideSkeletons();
+                emptyState.classList.remove('hidden');
+                dashboard.classList.add('hidden');
+                showLoader(false);
+                alert("Processing failed: " + (data.error || "Unknown error"));
+            }
+        };
+
+        eventSource.onerror = () => {
+            eventSource.close();
+            // Fall back to polling if SSE fails
+            pollJobProgressFallback(jobId);
+        };
+    }
+
+    async function pollJobProgressFallback(jobId) {
+        // Polling fallback for browsers that don't support SSE well
+        const maxAttempts = 120; // 2 minutes with 1s interval
+        let attempts = 0;
+
+        const poll = async () => {
+            if (attempts >= maxAttempts) {
+                hideSkeletons();
+                emptyState.classList.remove('hidden');
+                dashboard.classList.add('hidden');
+                showLoader(false);
+                alert("Processing timeout. Please try again.");
+                return;
+            }
+
+            attempts++;
+
+            try {
+                const res = await fetch(`/api/job/${jobId}`);
+                const data = await res.json();
+
+                if (data.error) {
+                    hideSkeletons();
+                    emptyState.classList.remove('hidden');
+                    dashboard.classList.add('hidden');
+                    showLoader(false);
+                    alert("Processing error: " + data.error);
+                    return;
+                }
+
+                // Update progress
+                const loaderText = loader.querySelector('p');
+                if (loaderText) {
+                    loaderText.textContent = `${translations[currentLang].processing} ${data.progress}%`;
+                }
+
+                if (data.status === 'completed') {
+                    hideSkeletons();
+                    showLoader(false);
+
+                    if (data.data) {
+                        renderDashboard(data.data);
+                    } else if (data.analysis_id) {
+                        loadResult(data.analysis_id);
+                    }
+                    loadHistory();
+                } else if (data.status === 'failed') {
+                    hideSkeletons();
+                    emptyState.classList.remove('hidden');
+                    dashboard.classList.add('hidden');
+                    showLoader(false);
+                    alert("Processing failed: " + (data.error || "Unknown error"));
+                } else {
+                    // Continue polling
+                    setTimeout(poll, 1000);
+                }
+            } catch (e) {
+                setTimeout(poll, 1000);
+            }
+        };
+
+        poll();
+    }
+
     async function loadResult(id) {
         showLoader(true);
+        showSkeletons();
         try {
             const res = await fetch(`/api/result/${id}`);
             if (!res.ok) throw new Error("Load failed");
             const data = await res.json();
+            hideSkeletons();
             renderDashboard(data);
         } catch (e) {
+            hideSkeletons();
+            emptyState.classList.remove('hidden');
+            dashboard.classList.add('hidden');
             alert("Error loading result: " + e.message);
         } finally {
             showLoader(false);
@@ -993,6 +1129,52 @@ document.addEventListener('DOMContentLoaded', () => {
     function showLoader(show) {
         if (show) loader.classList.remove('hidden');
         else loader.classList.add('hidden');
+    }
+
+    function showSkeletons() {
+        // Show dashboard with skeleton placeholders
+        emptyState.classList.add('hidden');
+        dashboard.classList.remove('hidden');
+
+        // KPI skeletons
+        document.querySelectorAll('.kpi-card .value').forEach(el => {
+            el.dataset.originalContent = el.textContent;
+            el.innerHTML = '<div class="skeleton skeleton-text short"></div>';
+        });
+
+        // Chart skeletons
+        document.querySelectorAll('.chart-card canvas').forEach(canvas => {
+            canvas.style.display = 'none';
+            const skeleton = document.createElement('div');
+            skeleton.className = 'skeleton skeleton-chart';
+            skeleton.dataset.skeletonFor = canvas.id;
+            canvas.parentElement.appendChild(skeleton);
+        });
+
+        // Table skeletons
+        document.querySelectorAll('.table-container tbody').forEach(tbody => {
+            tbody.innerHTML = Array(5).fill(0).map(() =>
+                `<tr><td colspan="12"><div class="skeleton skeleton-row"></div></td></tr>`
+            ).join('');
+        });
+    }
+
+    function hideSkeletons() {
+        // Restore KPI values
+        document.querySelectorAll('.kpi-card .value').forEach(el => {
+            if (el.dataset.originalContent) {
+                el.textContent = el.dataset.originalContent;
+                delete el.dataset.originalContent;
+            }
+        });
+
+        // Remove chart skeletons and show canvases
+        document.querySelectorAll('.skeleton-chart').forEach(skeleton => {
+            skeleton.remove();
+        });
+        document.querySelectorAll('.chart-card canvas').forEach(canvas => {
+            canvas.style.display = '';
+        });
     }
 
     // Init

@@ -1,0 +1,29 @@
+[
+  {
+    "receiveTimestamp": "2024-01-15T10:30:00Z",
+    "jsonPayload": {
+      "data": {
+        "AdditionalInformation": "{\"Arguments\": \"{\\\"message\\\": [{\\\"imei\\\": \\\"123456789012345\\\", \\\"time\\\": \\\"2024-01-15T10:29:55Z\\\", \\\"lat\\\": 19.4326, \\\"lng\\\": -99.1332, \\\"speed\\\": 45, \\\"heading\\\": 180, \\\"quality\\\": \\\"Good\\\", \\\"altitude\\\": 2240, \\\"addOns\\\": {\\\"mileage\\\": 15000, \\\"ignitionOn\\\": 1, \\\"canbus\\\": {\\\"engineRPM\\\": 2500, \\\"vehicleSpeed\\\": 45, \\\"engineCoolantTemperature\\\": 85, \\\"totalDistance\\\": 15000, \\\"totalFuelUsed\\\": 1200, \\\"fuelLevelInput\\\": 65}}, \\\"event\\\": {\\\"type\\\": 6}}]}\"}",
+        "DeviceId": "device-001"
+      }
+    }
+  },
+  {
+    "receiveTimestamp": "2024-01-15T10:31:00Z",
+    "jsonPayload": {
+      "data": {
+        "AdditionalInformation": "{\"Arguments\": \"{\\\"message\\\": [{\\\"imei\\\": \\\"123456789012345\\\", \\\"time\\\": \\\"2024-01-15T10:30:55Z\\\", \\\"lat\\\": 19.4330, \\\"lng\\\": -99.1340, \\\"speed\\\": 50, \\\"heading\\\": 175, \\\"quality\\\": \\\"Good\\\", \\\"altitude\\\": 2238, \\\"addOns\\\": {\\\"mileage\\\": 15001, \\\"ignitionOn\\\": 1, \\\"canbus\\\": {\\\"engineRPM\\\": 2800, \\\"vehicleSpeed\\\": 50, \\\"engineCoolantTemperature\\\": 87, \\\"totalDistance\\\": 15001, \\\"totalFuelUsed\\\": 1201, \\\"fuelLevelInput\\\": 64}}, \\\"event\\\": {}}]}\"}",
+        "DeviceId": "device-001"
+      }
+    }
+  },
+  {
+    "receiveTimestamp": "2024-01-15T10:32:00Z",
+    "jsonPayload": {
+      "data": {
+        "AdditionalInformation": "{\"Arguments\": \"{\\\"message\\\": [{\\\"imei\\\": \\\"123456789012345\\\", \\\"time\\\": \\\"2024-01-15T10:31:55Z\\\", \\\"lat\\\": 19.4335, \\\"lng\\\": -99.1350, \\\"speed\\\": 0, \\\"heading\\\": 175, \\\"quality\\\": \\\"Good\\\", \\\"altitude\\\": 2235, \\\"addOns\\\": {\\\"mileage\\\": 15002, \\\"ignitionOn\\\": 0, \\\"canbus\\\": {\\\"engineRPM\\\": 0, \\\"vehicleSpeed\\\": 0, \\\"engineCoolantTemperature\\\": 85, \\\"totalDistance\\\": 15002, \\\"totalFuelUsed\\\": 1201, \\\"fuelLevelInput\\\": 64}}, \\\"event\\\": {\\\"type\\\": 7}}]}\"}",
+        "DeviceId": "device-001"
+      }
+    }
+  }
+]

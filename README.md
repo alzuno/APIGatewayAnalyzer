@@ -10,22 +10,29 @@ A powerful web application for analyzing GPS telemetry JSON logs, visualizing de
 *   **🌍 Localization**: Toggle between **English** and **Spanish** instantly.
 *   **🗺️ Interactive Map**:
     *   **Auto-Zoom**: Automatically focuses on the selected device's route.
-    *   **Event Markers** (v2.3): Color-coded pins for Ignition On/Off, Harsh Behavior, and SOS events.
+    *   **Event Markers**: Color-coded pins for Ignition On/Off, Harsh Behavior, and SOS events.
     *   **Smart Themes**: Map tiles adapt to System/Light/Dark mode preferences.
     *   **Path Visualization**: Full route plotting for individual devices.
-*   **📋 Enhanced Tables** (v2.3):
+*   **📋 Enhanced Tables**:
     *   **Sortable Columns**: Click any header to sort data ascending/descending.
     *   **Clickable IMEIs**: Filter dashboard instantly by clicking device identifiers.
 *   **🌓 Theme Support**: Built-in Dark and Light modes with "Auto" system detection.
 *   **📂 Data Management**:
     *   **Drag & Drop Upload**: Easy JSON processing.
-    *   **Editable History** (v2.3): Rename past reports inline.
+    *   **Editable History**: Rename past reports inline.
     *   **Persistent History**: Access past reports anytime.
     *   **CSV Export**: Download raw data for external analysis.
 *   **🐳 Docker Ready**: Containerized for easy deployment and persistence.
+*   **🔧 Technical Features** (v3.0):
+    *   **SQLite Database**: Fast, reliable storage replacing JSON files.
+    *   **Background Processing**: Large files (>10MB) process asynchronously with real-time progress.
+    *   **API Documentation**: Swagger UI at `/api/docs`.
+    *   **Logging**: Rotating file logs at `data/logs/app.log`.
+    *   **Test Suite**: 42 pytest tests for core functionality.
 
 ## Key Capabilities
 
+- **v3.0 Technical Improvements**: SQLite database, async processing, Swagger API docs, test suite, modular frontend.
 - **v2.3 UX Enhancements**: Table sorting, clickable IMEIs, editable history names, and map event pins.
 - **v2.1 Forensic Intelligence**: Advanced detection of frozen RPM, static Temperature, and static Speed data.
 - **v2.0 Forensic Scorecard**: Deep analysis of Odometer quality (frozen/decreasing) and CAN Bus completeness (6 nodes).
@@ -79,6 +86,9 @@ This repository includes a workflow in `.github/workflows/publish.yml` that auto
 ## 📜 Version History
 See [CHANGELOG.md](CHANGELOG.md) for details.
 
+*   **v3.0.0**: SQLite database, background processing, Swagger API docs, test suite.
+*   **v2.3.0**: Table sorting, clickable IMEIs, editable history, map event pins.
+*   **v2.0.0**: Forensic Scorecard with CAN Bus and Odometer analysis.
 *   **v1.1.0**: Localization (EN/ES) & Advanced Data Quality Analytics.
 *   **v1.0.0**: Docker Support & Theme System.
 
@@ -88,13 +98,40 @@ See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ```
 APIGatewayAnalyzer/
-├── app.py                  # Main Flask Application
-├── Dockerfile             # Docker build instruction
-├── docker-compose.yml     # Local development config
+├── app.py                  # Main Flask Application with Flask-RESTX API
+├── database.py             # SQLite database access layer
+├── worker.py               # Background processing worker
+├── schema.sql              # Database schema
+├── Dockerfile              # Docker build instruction
+├── docker-compose.yml      # Local development config
 ├── docker-compose.prod.yml # Production config
-├── requirements.txt       # Python dependencies
-├── static/                # Frontend assets (CSS, JS)
-├── templates/             # HTML templates
-├── .github/               # CI/CD Workflows
-└── data/                  # (Created at runtime) Persistent storage
+├── requirements.txt        # Python dependencies
+├── requirements-dev.txt    # Development dependencies (pytest)
+├── pytest.ini              # Test configuration
+├── static/
+│   ├── style.css           # Styles with skeleton loaders
+│   ├── script.js           # Legacy script (kept for reference)
+│   ├── translations.js     # EN/ES translations
+│   └── js/                 # Modular JavaScript
+│       ├── app.js          # Main application
+│       ├── api.js          # API communication
+│       ├── charts.js       # Chart rendering
+│       ├── localization.js # i18n module
+│       ├── map.js          # Map rendering
+│       ├── tables.js       # Table rendering
+│       ├── theme.js        # Theme management
+│       └── utils.js        # Utility functions
+├── templates/              # HTML templates
+├── tests/                  # Pytest test suite
+│   ├── conftest.py         # Test fixtures
+│   ├── test_normalization.py
+│   ├── test_sanitization.py
+│   ├── test_scoring.py
+│   └── fixtures/           # Test data
+├── .github/                # CI/CD Workflows
+└── data/                   # (Created at runtime)
+    ├── uploads/            # Uploaded JSON files
+    ├── processed/          # Legacy processed JSON (migrated to SQLite)
+    ├── logs/               # Application logs
+    └── telemetry.db        # SQLite database
 ```
