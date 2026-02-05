@@ -25,7 +25,8 @@ api = Api(
     version='2.3.0',
     title='GPS Telemetry Analyzer API',
     description='API for analyzing GPS telemetry JSON logs from vehicle tracking systems',
-    doc='/api/docs'
+    doc='/api/docs',
+    catch_all_404s=False  # Allow regular Flask routes to work
 )
 
 # Namespaces
