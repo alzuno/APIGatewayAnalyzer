@@ -19,6 +19,11 @@ from worker import (
 
 app = Flask(__name__)
 
+# Define index route BEFORE Flask-RESTX to ensure it's registered
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 # Flask-RESTX API setup
 api = Api(
     app,
@@ -484,11 +489,6 @@ def check_content_length():
 def request_entity_too_large(error):
     logger.warning(f"Request entity too large: {error}")
     return jsonify({"error": f"File too large. Maximum size: {MAX_UPLOAD_SIZE_MB}MB"}), 413
-
-
-@app.route('/')
-def index():
-    return render_template('index.html')
 
 
 @ns_analysis.route('/upload')
