@@ -20,5 +20,5 @@ ENV FLASK_APP=app.py
 # Expose port
 EXPOSE 8000
 
-# Run with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
+# Run with Gunicorn (uses PORT env var for Render, defaults to 8000 locally)
+CMD gunicorn --bind "0.0.0.0:${PORT:-8000}" app:app
