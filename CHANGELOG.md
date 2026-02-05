@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.1] - 2026-02-05
+### Fixed
+- **Render Deployment**: Use `PORT` environment variable for Gunicorn binding (Render assigns dynamic ports).
+- **Flask-RESTX Route Handling**: Added `catch_all_404s=False` to allow regular Flask routes (`/`) to work alongside API routes.
+
 ## [3.0.0] - 2026-02-05
 ### Added
 - **Logging System**: Rotating file logger with 10MB max size and 5 backups at `data/logs/app.log`.

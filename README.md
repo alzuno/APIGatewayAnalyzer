@@ -86,6 +86,7 @@ This repository includes a workflow in `.github/workflows/publish.yml` that auto
 ## 📜 Version History
 See [CHANGELOG.md](CHANGELOG.md) for details.
 
+*   **v3.0.1**: Fix Render deployment (PORT env var) and Flask-RESTX route handling.
 *   **v3.0.0**: SQLite database, background processing, Swagger API docs, test suite.
 *   **v2.3.0**: Table sorting, clickable IMEIs, editable history, map event pins.
 *   **v2.0.0**: Forensic Scorecard with CAN Bus and Odometer analysis.

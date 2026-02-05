@@ -22,7 +22,7 @@ app = Flask(__name__)
 # Flask-RESTX API setup
 api = Api(
     app,
-    version='2.3.0',
+    version='3.0.1',
     title='GPS Telemetry Analyzer API',
     description='API for analyzing GPS telemetry JSON logs from vehicle tracking systems',
     doc='/api/docs',
