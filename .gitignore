@@ -9,7 +9,7 @@ uploads/
 processed/
 jsonfiles/
 history.json
-To - Do
+To-do.txt
 # Runtime files
 logs/
 *.db
