@@ -120,9 +120,31 @@ data/
 └── history.json.backup  # Backup of migrated JSON history
 ```
 
+## Version Management
+
+When updating the version, ALL of these must be changed:
+1. `app.py` — `version` param in `Api()` constructor
+2. `templates/index.html` — version badge in header
+3. `CHANGELOG.md` — new version entry
+4. `README.md` — version history section
+
+## Commit Conventions
+
+- Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `security:`
+- Always bump the version, even for minor fixes
+- Do NOT include `Co-Authored-By:` lines
+- Check if documentation (CHANGELOG.md, README.md) needs updating
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATA_DIR` | `.` | Base directory for data storage |
+| `DATA_DIR` | `.` (local) / `/data` (Docker) | Base directory for data storage |
 | `MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload file size in MB |
+| `PORT` | `8000` | Gunicorn bind port (used by Render) |
+
+## Deployment
+
+Docker image published to `ghcr.io` via GitHub Actions on push to main or `v*.*.*` tags. Render deployments use dynamic `${PORT}` — the Dockerfile CMD must use `${PORT:-8000}`.
+
+**IMPORTANT:** The `@app.route('/')` for index MUST be defined BEFORE `Api()` initialization, otherwise Flask-RESTX swallows it. Use `catch_all_404s=False` in the Api constructor.

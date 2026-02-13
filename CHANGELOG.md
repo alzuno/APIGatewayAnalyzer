@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-02-13
+### Changed
+- **Removed Authentication System**: Rolled back the auth system (login, 2FA, admin panel) introduced in v3.0.2–v3.0.6. The application is now open-access as it was in v3.0.1.
+
+### Security
+- **Updated gunicorn** to 25.0.3 (from 21.2.0) to fix known vulnerabilities.
+- **Updated pip, setuptools, wheel** in Docker build for security.
+
 ## [3.0.1] - 2026-02-05
 ### Fixed
 - **Render Deployment**: Use `PORT` environment variable for Gunicorn binding (Render assigns dynamic ports).
