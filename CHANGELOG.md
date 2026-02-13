@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-02-13
+### Added
+- **User Manual**: Comprehensive `USER_MANUAL.md` covering installation, usage, scorecard metrics, API reference, and troubleshooting.
+
+### Changed
+- **Non-root Docker Container**: The Docker image now runs as a non-root user (`appuser`) for improved security. Added `--root-user-action=ignore` to suppress pip warnings during build.
+
+### Removed
+- **Legacy `static/script.js`**: Deleted the 1,182-line monolithic script superseded by 8 modular JS files in `static/js/`.
+
 ## [3.1.0] - 2026-02-13
 ### Changed
 - **Removed Authentication System**: Rolled back the auth system (login, 2FA, admin panel) introduced in v3.0.2–v3.0.6. The application is now open-access as it was in v3.0.1.

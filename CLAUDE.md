@@ -116,8 +116,7 @@ data/
 ├── uploads/       # Raw uploaded JSON files
 ├── processed/     # Legacy JSON files (migrated to SQLite)
 ├── logs/          # Application logs (app.log)
-├── telemetry.db   # SQLite database
-└── history.json.backup  # Backup of migrated JSON history
+└── telemetry.db   # SQLite database
 ```
 
 ## Version Management

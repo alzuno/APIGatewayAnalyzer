@@ -86,6 +86,7 @@ This repository includes a workflow in `.github/workflows/publish.yml` that auto
 ## 📜 Version History
 See [CHANGELOG.md](CHANGELOG.md) for details.
 
+*   **v3.2.0**: User manual, non-root Docker container, removed legacy script.js.
 *   **v3.1.0**: Removed auth system, updated gunicorn to 25.0.3 for security.
 *   **v3.0.1**: Fix Render deployment (PORT env var) and Flask-RESTX route handling.
 *   **v3.0.0**: SQLite database, background processing, Swagger API docs, test suite.
@@ -112,7 +113,6 @@ APIGatewayAnalyzer/
 ├── pytest.ini              # Test configuration
 ├── static/
 │   ├── style.css           # Styles with skeleton loaders
-│   ├── script.js           # Legacy script (kept for reference)
 │   ├── translations.js     # EN/ES translations
 │   └── js/                 # Modular JavaScript
 │       ├── app.js          # Main application
