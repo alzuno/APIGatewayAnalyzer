@@ -10,9 +10,14 @@ window.GPSAnalyzer = window.GPSAnalyzer || {};
     // Application State
     app.state = {
         currentData: null,
+        currentAnalysisId: null,
         selectedImei: 'all',
         currentTheme: localStorage.getItem('theme') || 'auto',
         currentLang: localStorage.getItem('lang') || 'en',
+        rawPage: 1,
+        rawPerPage: 100,
+        rawPages: 1,
+        rawTotal: 0,
         tableSorts: {
             'scorecard-table': { column: null, dir: null },
             'stats-table': { column: null, dir: null }
@@ -130,13 +135,6 @@ window.GPSAnalyzer = window.GPSAnalyzer || {};
                 if (btn.dataset.tab === 'map' && app.map.instance) {
                     setTimeout(() => {
                         app.map.instance.invalidateSize();
-                        if (app.state.currentData) {
-                            let filteredRaw = app.state.currentData.raw_data_sample || [];
-                            if (app.state.selectedImei !== 'all') {
-                                filteredRaw = filteredRaw.filter(r => r.imei === app.state.selectedImei);
-                            }
-                            app.mapModule.render(filteredRaw);
-                        }
                     }, 100);
                 }
             };
@@ -155,12 +153,10 @@ window.GPSAnalyzer = window.GPSAnalyzer || {};
 
         let filteredScorecard = app.state.currentData.scorecard || [];
         let filteredStats = app.state.currentData.scorecard || [];
-        let filteredRaw = app.state.currentData.raw_data_sample || [];
 
         if (app.state.selectedImei !== 'all') {
             filteredScorecard = filteredScorecard.filter(r => r.imei === app.state.selectedImei);
             filteredStats = filteredStats.filter(r => r.imei === app.state.selectedImei);
-            filteredRaw = filteredRaw.filter(r => r.imei === app.state.selectedImei);
         }
 
         // Update KPIs
@@ -181,8 +177,20 @@ window.GPSAnalyzer = window.GPSAnalyzer || {};
         app.chartsModule.render(app.state.currentData, app.state.selectedImei);
         app.tables.renderScorecard(filteredScorecard);
         app.tables.renderStats(filteredStats);
-        app.tables.renderRaw(filteredRaw);
-        app.mapModule.render(filteredRaw);
+
+        // Load raw data via paginated API
+        if (app.state.currentAnalysisId) {
+            app.state.rawPage = 1;
+            app.api.loadTelemetryPage(
+                app.state.currentAnalysisId,
+                app.state.rawPage,
+                app.state.rawPerPage,
+                app.state.selectedImei
+            );
+        }
+
+        // Map uses telemetry from first page or scorecard coordinates
+        app.mapModule.render([]);
     };
 
     // Initialize when DOM is ready

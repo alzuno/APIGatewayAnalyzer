@@ -26,7 +26,7 @@ def index():
 # Flask-RESTX API setup
 api = Api(
     app,
-    version='3.2.1',
+    version='3.3.0',
     title='GPS Telemetry Analyzer API',
     description='API for analyzing GPS telemetry JSON logs from vehicle tracking systems',
     doc='/api/docs',
@@ -340,6 +340,11 @@ def process_log_data(logs_data, filename):
     # Deduplication
     df = df.drop_duplicates(subset=['imei', 'time', 'lat', 'lng'], keep='first')
 
+    # Mark ignition as available for devices that have ignition events or addOns.ignitionOn
+    ign_events = df['event_type'].isin(['Ignition On', 'Ignition Off'])
+    devices_with_ignition = df.loc[ign_events | df['has_ignition'], 'imei'].unique()
+    df.loc[df['imei'].isin(devices_with_ignition), 'has_ignition'] = True
+
     # --- ADVANCED METRICS PER IMEI ---
     def calculate_v2_metrics(group):
         group = group.sort_values('time')
@@ -442,9 +447,27 @@ def process_log_data(logs_data, filename):
     scorecard = imei_metrics.merge(stats[['imei', 'Distancia_Recorrida_(KM)', 'KM_Inicial', 'KM_Final', 'Primer_Reporte', 'Ultimo_Reporte', 'Velocidad_Promedio_(KPH)', 'Velocidad_Maxima_(KPH)', 'RPM_Promedio', 'Nivel_Combustible_Promedio_%']], on='imei', how='left')
 
     # --- GLOBAL RADAR DATA ---
+    # Ignition quality: per device, measure on/off balance
+    def calc_ignition_quality(group):
+        ign_on = (group['event_type'] == 'Ignition On').sum()
+        ign_off = (group['event_type'] == 'Ignition Off').sum()
+        has_addon = group['has_ignition'].any()
+        if ign_on == 0 and ign_off == 0 and not has_addon:
+            return 0.0
+        if ign_on == 0 and ign_off == 0 and has_addon:
+            return 100.0
+        max_ign = max(ign_on, ign_off)
+        min_ign = min(ign_on, ign_off)
+        if abs(ign_on - ign_off) <= 1:
+            return 100.0
+        return (min_ign / max_ign) * 100 if max_ign > 0 else 0.0
+
+    ignition_scores = df.groupby('imei').apply(calc_ignition_quality)
+    ignition_avg = float(ignition_scores.mean()) if len(ignition_scores) > 0 else 0.0
+
     global_quality = {
         'gps_validity': df['gps_ok'].mean() * 100,
-        'ignition': df['has_ignition'].mean() * 100,
+        'ignition': ignition_avg,
         'delay': (df['delay_seconds'] < 60).mean() * 100,
         'rpm': df['has_rpm'].mean() * 100,
         'speed': df['has_speed'].mean() * 100,
@@ -465,12 +488,7 @@ def process_log_data(logs_data, filename):
     result = {
         "summary": summary,
         "scorecard": clean_df_for_json(scorecard),
-        "raw_data_sample": clean_df_for_json(
-            pd.concat([
-                group.head(max(1, int(2000 * len(group) / len(df))))
-                for _, group in df.groupby('imei')
-            ]).head(2000)
-        ),
+        "raw_data_sample": clean_df_for_json(df),
         "data_quality": global_quality,
         "chart_data": {
             "score_distribution": scorecard['Puntaje_Calidad'].tolist(),
@@ -587,6 +605,31 @@ class Result(Resource):
                 return json.load(f)
         except FileNotFoundError:
             return {"error": "Result not found"}, 404
+
+
+@ns_analysis.route('/result/<string:id>/telemetry')
+@ns_analysis.param('id', 'The analysis identifier')
+class Telemetry(Resource):
+    @ns_analysis.doc('get_telemetry_page',
+        params={
+            'page': 'Page number (default 1)',
+            'per_page': 'Rows per page (default 100, max 500)',
+            'imei': 'Optional IMEI filter'
+        })
+    @ns_analysis.response(200, 'Success')
+    @ns_analysis.response(404, 'Not Found', error_model)
+    def get(self, id):
+        """Retrieve paginated raw telemetry data for an analysis"""
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 100, type=int), 500)
+        imei = request.args.get('imei', None)
+        if imei == 'all':
+            imei = None
+
+        result = db.get_telemetry_page(id, page=page, per_page=per_page, imei=imei)
+        if result is None:
+            return {"error": "Result not found"}, 404
+        return result
 
 
 @ns_analysis.route('/history/<string:id>')

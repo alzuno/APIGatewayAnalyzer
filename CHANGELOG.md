@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-02-17
+### Added
+- **Server-side pagination for raw telemetry data**: New `GET /api/result/<id>/telemetry` endpoint with `page`, `per_page`, and `imei` query parameters. The frontend now loads raw data on demand with pagination controls (page navigation, rows-per-page selector).
+- **Full raw data storage**: All telemetry records are now stored in the database (removed the 2000-row stratified sampling limit). This ensures KM_Inicial/KM_Final in the scorecard match the actual raw data visible in the grid.
+
+### Fixed
+- **Ignition radar metric**: Ignition completeness on the data quality radar now calculates a quality score based on ignition on/off event balance per device, instead of simply checking for the presence of `addOns.ignitionOn`. Devices with balanced ignition events score 100%; imbalanced devices score proportionally.
+
+### Changed
+- **CSV export**: Now fetches all pages from the server before exporting, ensuring complete data regardless of pagination state.
+- **Map view**: Map rendering decoupled from raw data pagination.
+
+## [3.2.2] - 2026-02-17
+### Fixed
+- **Ignition radar metric**: Ignition completeness now correctly detects devices that report ignition via event types (Ignition On/Off) rather than only checking `addOns.ignitionOn` field.
+
 ## [3.2.1] - 2026-02-17
 ### Fixed
 - **Stratified raw data sampling**: Raw telemetry sample now distributes rows proportionally across all devices instead of taking the first 2000 rows globally. This ensures every device has representative data when filtering by device in the dashboard.

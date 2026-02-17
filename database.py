@@ -139,20 +139,7 @@ class Database:
                         VALUES (?, ?, ?)
                     ''', (analysis_id, str(event_type), count))
 
-            # Insert raw telemetry sample (limit to 2000 records, stratified by device)
-            imeis = list({r.get('imei') for r in raw_data if r.get('imei')})
-            if imeis:
-                per_device_limit = max(1, 2000 // len(imeis))
-                device_counts = {}
-                stratified_data = []
-                for row in raw_data:
-                    device = row.get('imei')
-                    device_counts[device] = device_counts.get(device, 0) + 1
-                    if device_counts[device] <= per_device_limit:
-                        stratified_data.append(row)
-                raw_data = stratified_data[:2000]
-            else:
-                raw_data = raw_data[:2000]
+            # Insert all raw telemetry data
             for row in raw_data:
                 conn.execute('''
                     INSERT INTO telemetry_data (analysis_id, imei, time, receive_timestamp,
@@ -282,46 +269,7 @@ class Database:
 
             events_summary = {r['event_type']: r['count'] for r in chart_rows if r['event_type']}
 
-            # Get raw data sample (stratified by device)
-            raw_rows = conn.execute('''
-                SELECT * FROM (
-                    SELECT *, ROW_NUMBER() OVER (PARTITION BY imei ORDER BY time) as rn
-                    FROM telemetry_data WHERE analysis_id = ?
-                ) WHERE rn <= MAX(1, 2000 / MAX(1, (SELECT COUNT(DISTINCT imei) FROM telemetry_data WHERE analysis_id = ?)))
-                LIMIT 2000
-            ''', (analysis_id, analysis_id)).fetchall()
-
-            raw_data_sample = []
-            for r in raw_rows:
-                raw_data_sample.append({
-                    'imei': r['imei'],
-                    'time': r['time'],
-                    'receiveTimestamp': r['receive_timestamp'],
-                    'lat': r['lat'],
-                    'lng': r['lng'],
-                    'altitude': r['altitude'],
-                    'speed': r['speed'],
-                    'heading': r['heading'],
-                    'lastFixTime': r['last_fix_time'],
-                    'isMoving': bool(r['is_moving']),
-                    'batteryLevelPercentage': r['battery_level_percentage'],
-                    'reportMode': r['report_mode'],
-                    'quality': r['quality'],
-                    'mileage': r['mileage'],
-                    'ignitionOn': bool(r['ignition_on']),
-                    'externalPowerVcc': r['external_power_vcc'],
-                    'digitalInput': r['digital_input'],
-                    'driverId': r['driver_id'],
-                    'engineRPM': r['engine_rpm'],
-                    'vehicleSpeed': r['vehicle_speed'],
-                    'engineCoolantTemperature': r['engine_coolant_temperature'],
-                    'totalDistance': r['total_distance'],
-                    'totalFuelUsed': r['total_fuel_used'],
-                    'fuelLevelInput': r['fuel_level_input'],
-                    'event_type': r['event_type'],
-                    'delay_seconds': r['delay_seconds']
-                })
-
+            # Raw data now served via paginated endpoint /api/result/<id>/telemetry
             return {
                 'summary': summary,
                 'scorecard': scorecard,
@@ -330,7 +278,7 @@ class Database:
                     'score_distribution': [s['Puntaje_Calidad'] for s in scorecard],
                     'events_summary': events_summary
                 },
-                'raw_data_sample': raw_data_sample
+                'raw_data_sample': []
             }
 
     def get_history(self) -> List[Dict[str, Any]]:
@@ -416,6 +364,92 @@ class Database:
                 'SELECT 1 FROM analyses WHERE id = ?', (analysis_id,)
             ).fetchone()
             return row is not None
+
+    def get_telemetry_page(self, analysis_id: str, page: int = 1,
+                          per_page: int = 100, imei: str = None) -> Optional[Dict[str, Any]]:
+        """Retrieve paginated telemetry data for an analysis.
+
+        Args:
+            analysis_id: The analysis identifier
+            page: Page number (1-based)
+            per_page: Rows per page
+            imei: Optional IMEI filter
+
+        Returns:
+            Dict with rows, total, page, pages or None if analysis not found
+        """
+        with self.get_connection() as conn:
+            # Check analysis exists
+            if not conn.execute(
+                'SELECT 1 FROM analyses WHERE id = ?', (analysis_id,)
+            ).fetchone():
+                return None
+
+            # Count total
+            if imei:
+                total = conn.execute(
+                    'SELECT COUNT(*) FROM telemetry_data WHERE analysis_id = ? AND imei = ?',
+                    (analysis_id, imei)
+                ).fetchone()[0]
+            else:
+                total = conn.execute(
+                    'SELECT COUNT(*) FROM telemetry_data WHERE analysis_id = ?',
+                    (analysis_id,)
+                ).fetchone()[0]
+
+            total_pages = max(1, (total + per_page - 1) // per_page)
+            page = max(1, min(page, total_pages))
+            offset = (page - 1) * per_page
+
+            if imei:
+                raw_rows = conn.execute(
+                    'SELECT * FROM telemetry_data WHERE analysis_id = ? AND imei = ? ORDER BY time LIMIT ? OFFSET ?',
+                    (analysis_id, imei, per_page, offset)
+                ).fetchall()
+            else:
+                raw_rows = conn.execute(
+                    'SELECT * FROM telemetry_data WHERE analysis_id = ? ORDER BY time LIMIT ? OFFSET ?',
+                    (analysis_id, per_page, offset)
+                ).fetchall()
+
+            rows = []
+            for r in raw_rows:
+                rows.append({
+                    'imei': r['imei'],
+                    'time': r['time'],
+                    'receiveTimestamp': r['receive_timestamp'],
+                    'lat': r['lat'],
+                    'lng': r['lng'],
+                    'altitude': r['altitude'],
+                    'speed': r['speed'],
+                    'heading': r['heading'],
+                    'lastFixTime': r['last_fix_time'],
+                    'isMoving': bool(r['is_moving']),
+                    'batteryLevelPercentage': r['battery_level_percentage'],
+                    'reportMode': r['report_mode'],
+                    'quality': r['quality'],
+                    'mileage': r['mileage'],
+                    'ignitionOn': bool(r['ignition_on']),
+                    'externalPowerVcc': r['external_power_vcc'],
+                    'digitalInput': r['digital_input'],
+                    'driverId': r['driver_id'],
+                    'engineRPM': r['engine_rpm'],
+                    'vehicleSpeed': r['vehicle_speed'],
+                    'engineCoolantTemperature': r['engine_coolant_temperature'],
+                    'totalDistance': r['total_distance'],
+                    'totalFuelUsed': r['total_fuel_used'],
+                    'fuelLevelInput': r['fuel_level_input'],
+                    'event_type': r['event_type'],
+                    'delay_seconds': r['delay_seconds']
+                })
+
+            return {
+                'rows': rows,
+                'total': total,
+                'page': page,
+                'pages': total_pages,
+                'per_page': per_page
+            }
 
     # Job management methods for background processing
     def create_job(self, job_id: str, filename: str) -> None:

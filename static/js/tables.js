@@ -202,14 +202,21 @@
     };
 
     /**
-     * Render raw data table
+     * Render raw data table with pagination
      */
-    app.tables.renderRaw = function(rows) {
+    app.tables.renderRaw = function(rows, pagination) {
+        const container = document.getElementById('tab-raw');
         const table = document.getElementById('raw-table');
         const thead = table.querySelector('thead');
         const tbody = table.querySelector('tbody');
 
-        if (!rows || rows.length === 0) return;
+        if (!rows || rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="26">No data</td></tr>';
+            // Remove pagination if exists
+            const existing = container.querySelector('.pagination-controls');
+            if (existing) existing.remove();
+            return;
+        }
 
         const cols = [
             'imei', 'time', 'receiveTimestamp', 'delay_seconds', 'lat', 'lng',
@@ -225,28 +232,116 @@
         tbody.innerHTML = rows.map(row => `
             <tr>${cols.map(c => `<td>${row[c] !== undefined && row[c] !== null ? row[c] : ''}</td>`).join('')}</tr>
         `).join('');
+
+        // Render pagination controls
+        if (pagination) {
+            let paginationEl = container.querySelector('.pagination-controls');
+            if (!paginationEl) {
+                paginationEl = document.createElement('div');
+                paginationEl.className = 'pagination-controls';
+                container.appendChild(paginationEl);
+            }
+
+            const { page, pages, total, per_page } = pagination;
+            const start = (page - 1) * per_page + 1;
+            const end = Math.min(page * per_page, total);
+
+            // Build page buttons (show max 7)
+            let pageButtons = '';
+            const maxVisible = 7;
+            let startPage = Math.max(1, page - 3);
+            let endPage = Math.min(pages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+            if (startPage > 1) pageButtons += `<button class="page-btn" data-page="1">1</button>`;
+            if (startPage > 2) pageButtons += `<span class="page-ellipsis">...</span>`;
+            for (let i = startPage; i <= endPage; i++) {
+                pageButtons += `<button class="page-btn ${i === page ? 'active' : ''}" data-page="${i}">${i}</button>`;
+            }
+            if (endPage < pages - 1) pageButtons += `<span class="page-ellipsis">...</span>`;
+            if (endPage < pages) pageButtons += `<button class="page-btn" data-page="${pages}">${pages}</button>`;
+
+            paginationEl.innerHTML = `
+                <div class="pagination-info">${start}-${end} of ${total.toLocaleString()} rows</div>
+                <div class="pagination-nav">
+                    <button class="page-btn" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>&#8249;</button>
+                    ${pageButtons}
+                    <button class="page-btn" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>&#8250;</button>
+                </div>
+                <div class="pagination-size">
+                    <select class="per-page-select">
+                        ${[50, 100, 200, 500].map(n => `<option value="${n}" ${n === per_page ? 'selected' : ''}>${n}/page</option>`).join('')}
+                    </select>
+                </div>
+            `;
+
+            // Event handlers
+            paginationEl.querySelectorAll('.page-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const p = parseInt(btn.dataset.page);
+                    if (p >= 1 && p <= pages) {
+                        app.state.rawPage = p;
+                        app.api.loadTelemetryPage(
+                            app.state.currentAnalysisId, p,
+                            app.state.rawPerPage, app.state.selectedImei
+                        );
+                    }
+                };
+            });
+
+            const sizeSelect = paginationEl.querySelector('.per-page-select');
+            if (sizeSelect) {
+                sizeSelect.onchange = () => {
+                    app.state.rawPerPage = parseInt(sizeSelect.value);
+                    app.state.rawPage = 1;
+                    app.api.loadTelemetryPage(
+                        app.state.currentAnalysisId, 1,
+                        app.state.rawPerPage, app.state.selectedImei
+                    );
+                };
+            }
+        }
     };
 
     /**
      * Export data as CSV
      */
-    app.tables.exportCSV = function() {
-        if (!app.state.currentData) return;
+    app.tables.exportCSV = async function() {
+        if (!app.state.currentAnalysisId) return;
 
-        let dataToExport = app.state.currentData.raw_data_sample;
-        if (app.state.selectedImei !== 'all') {
-            dataToExport = dataToExport.filter(r => r.imei === app.state.selectedImei);
+        const imei = app.state.selectedImei;
+        const perPage = 500;
+        let page = 1;
+        let allRows = [];
+        let totalPages = 1;
+
+        // Fetch all pages
+        try {
+            while (page <= totalPages) {
+                const params = new URLSearchParams({ page, per_page: perPage });
+                if (imei && imei !== 'all') params.set('imei', imei);
+                const res = await fetch(`/api/result/${app.state.currentAnalysisId}/telemetry?${params}`);
+                if (!res.ok) throw new Error('Export failed');
+                const data = await res.json();
+                allRows = allRows.concat(data.rows);
+                totalPages = data.pages;
+                page++;
+            }
+        } catch (e) {
+            alert("Error exporting data: " + e.message);
+            return;
         }
 
-        if (dataToExport.length === 0) {
+        if (allRows.length === 0) {
             alert("No data to export");
             return;
         }
 
-        const headers = Object.keys(dataToExport[0]);
+        const headers = Object.keys(allRows[0]);
         const csvContent = [
             headers.join(','),
-            ...dataToExport.map(row => headers.map(fieldName => {
+            ...allRows.map(row => headers.map(fieldName => {
                 let cell = row[fieldName] === null ? '' : row[fieldName];
                 return JSON.stringify(cell);
             }).join(','))
@@ -256,7 +351,7 @@
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `export_${app.state.selectedImei}_${new Date().toISOString()}.csv`);
+        link.setAttribute("download", `export_${imei}_${new Date().toISOString()}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();

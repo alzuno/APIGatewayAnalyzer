@@ -86,6 +86,8 @@ This repository includes a workflow in `.github/workflows/publish.yml` that auto
 ## 📜 Version History
 See [CHANGELOG.md](CHANGELOG.md) for details.
 
+*   **v3.3.0**: Server-side paginated raw data, full telemetry storage, ignition radar quality scoring.
+*   **v3.2.2**: Fix ignition always showing 0% on data completeness radar.
 *   **v3.2.1**: Fix device data mixing in raw data sampling (stratified per-device).
 *   **v3.2.0**: User manual, non-root Docker container, removed legacy script.js.
 *   **v3.1.0**: Removed auth system, updated gunicorn to 25.0.3 for security.

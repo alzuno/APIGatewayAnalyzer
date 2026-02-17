@@ -1,6 +1,6 @@
 # GPS Telemetry Analyzer - User Manual
 
-**Version 3.2.1** | Last updated: 2026-02-17
+**Version 3.3.0** | Last updated: 2026-02-17
 
 ---
 

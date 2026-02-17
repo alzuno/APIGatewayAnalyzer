@@ -678,3 +678,78 @@ th.sortable.sort-desc::after {
     width: 100%;
     margin-bottom: 0.5rem;
 }
+
+/* Pagination Controls */
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-card);
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.pagination-info {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.pagination-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.page-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    min-width: 2rem;
+    text-align: center;
+}
+
+.page-btn:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.page-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.page-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.page-ellipsis {
+    padding: 0 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.per-page-select {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.8rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.per-page-select:focus {
+    border-color: var(--accent);
+}

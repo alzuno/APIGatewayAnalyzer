@@ -169,7 +169,7 @@
 
             const data = await res.json();
             app.utils.hideSkeletons();
-            app.api.renderDashboard(data.data);
+            app.api.renderDashboard(data.data, data.id);
             app.api.loadHistory();
         } catch (e) {
             app.utils.hideSkeletons();
@@ -211,7 +211,7 @@
                 app.utils.showLoader(false);
 
                 if (data.data) {
-                    app.api.renderDashboard(data.data);
+                    app.api.renderDashboard(data.data, data.analysis_id);
                 } else if (data.analysis_id) {
                     app.api.loadResult(data.analysis_id);
                 }
@@ -274,7 +274,7 @@
                     app.utils.showLoader(false);
 
                     if (data.data) {
-                        app.api.renderDashboard(data.data);
+                        app.api.renderDashboard(data.data, data.analysis_id);
                     } else if (data.analysis_id) {
                         app.api.loadResult(data.analysis_id);
                     }
@@ -297,6 +297,25 @@
     };
 
     /**
+     * Load a page of telemetry data
+     */
+    app.api.loadTelemetryPage = async function(analysisId, page, perPage, imei) {
+        try {
+            const params = new URLSearchParams({ page, per_page: perPage });
+            if (imei && imei !== 'all') params.set('imei', imei);
+            const res = await fetch(`/api/result/${analysisId}/telemetry?${params}`);
+            if (!res.ok) throw new Error('Failed to load telemetry');
+            const data = await res.json();
+            app.state.rawPage = data.page;
+            app.state.rawPages = data.pages;
+            app.state.rawTotal = data.total;
+            app.tables.renderRaw(data.rows, data);
+        } catch (e) {
+            console.error('Failed to load telemetry page', e);
+        }
+    };
+
+    /**
      * Load a saved result by ID
      */
     app.api.loadResult = async function(id) {
@@ -307,7 +326,7 @@
             if (!res.ok) throw new Error("Load failed");
             const data = await res.json();
             app.utils.hideSkeletons();
-            app.api.renderDashboard(data);
+            app.api.renderDashboard(data, id);
         } catch (e) {
             app.utils.hideSkeletons();
             app.elements.emptyState.classList.remove('hidden');
@@ -321,7 +340,8 @@
     /**
      * Render the dashboard with data
      */
-    app.api.renderDashboard = function(data) {
+    app.api.renderDashboard = function(data, analysisId) {
+        if (analysisId) app.state.currentAnalysisId = analysisId;
         // Reset state
         app.state.selectedImei = 'all';
         document.getElementById('search-scorecard').value = '';
