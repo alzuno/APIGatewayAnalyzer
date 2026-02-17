@@ -5,7 +5,6 @@ import codecs
 import logging
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
-from collections import Counter
 import pandas as pd
 import numpy as np
 from flask import Flask, render_template, request, jsonify, send_from_directory
@@ -27,7 +26,7 @@ def index():
 # Flask-RESTX API setup
 api = Api(
     app,
-    version='3.2.0',
+    version='3.2.1',
     title='GPS Telemetry Analyzer API',
     description='API for analyzing GPS telemetry JSON logs from vehicle tracking systems',
     doc='/api/docs',
@@ -152,9 +151,6 @@ def load_history():
                 pass
         return []
 
-def save_history_entry(entry):
-    """History entries are now managed by database.save_analysis()."""
-    pass  # No longer needed - handled by database
 
 def sanitize_for_json(obj):
     """Recursively convert NaN, Inf, -Inf to None for JSON serialization."""
@@ -469,7 +465,12 @@ def process_log_data(logs_data, filename):
     result = {
         "summary": summary,
         "scorecard": clean_df_for_json(scorecard),
-        "raw_data_sample": clean_df_for_json(df.head(2000)), 
+        "raw_data_sample": clean_df_for_json(
+            pd.concat([
+                group.head(max(1, int(2000 * len(group) / len(df))))
+                for _, group in df.groupby('imei')
+            ]).head(2000)
+        ),
         "data_quality": global_quality,
         "chart_data": {
             "score_distribution": scorecard['Puntaje_Calidad'].tolist(),

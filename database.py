@@ -139,8 +139,21 @@ class Database:
                         VALUES (?, ?, ?)
                     ''', (analysis_id, str(event_type), count))
 
-            # Insert raw telemetry sample (limit to 2000 records)
-            for row in raw_data[:2000]:
+            # Insert raw telemetry sample (limit to 2000 records, stratified by device)
+            imeis = list({r.get('imei') for r in raw_data if r.get('imei')})
+            if imeis:
+                per_device_limit = max(1, 2000 // len(imeis))
+                device_counts = {}
+                stratified_data = []
+                for row in raw_data:
+                    device = row.get('imei')
+                    device_counts[device] = device_counts.get(device, 0) + 1
+                    if device_counts[device] <= per_device_limit:
+                        stratified_data.append(row)
+                raw_data = stratified_data[:2000]
+            else:
+                raw_data = raw_data[:2000]
+            for row in raw_data:
                 conn.execute('''
                     INSERT INTO telemetry_data (analysis_id, imei, time, receive_timestamp,
                         lat, lng, altitude, speed, heading, last_fix_time, is_moving,
@@ -269,10 +282,14 @@ class Database:
 
             events_summary = {r['event_type']: r['count'] for r in chart_rows if r['event_type']}
 
-            # Get raw data sample
-            raw_rows = conn.execute(
-                'SELECT * FROM telemetry_data WHERE analysis_id = ? LIMIT 2000', (analysis_id,)
-            ).fetchall()
+            # Get raw data sample (stratified by device)
+            raw_rows = conn.execute('''
+                SELECT * FROM (
+                    SELECT *, ROW_NUMBER() OVER (PARTITION BY imei ORDER BY time) as rn
+                    FROM telemetry_data WHERE analysis_id = ?
+                ) WHERE rn <= MAX(1, 2000 / MAX(1, (SELECT COUNT(DISTINCT imei) FROM telemetry_data WHERE analysis_id = ?)))
+                LIMIT 2000
+            ''', (analysis_id, analysis_id)).fetchall()
 
             raw_data_sample = []
             for r in raw_rows:

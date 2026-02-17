@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.1] - 2026-02-17
+### Fixed
+- **Stratified raw data sampling**: Raw telemetry sample now distributes rows proportionally across all devices instead of taking the first 2000 rows globally. This ensures every device has representative data when filtering by device in the dashboard.
+
 ## [3.2.0] - 2026-02-13
 ### Added
 - **User Manual**: Comprehensive `USER_MANUAL.md` covering installation, usage, scorecard metrics, API reference, and troubleshooting.
