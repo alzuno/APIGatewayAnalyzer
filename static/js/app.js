@@ -189,8 +189,7 @@ window.GPSAnalyzer = window.GPSAnalyzer || {};
             );
         }
 
-        // Map uses telemetry from first page or scorecard coordinates
-        app.mapModule.render([]);
+        // Map is rendered by loadTelemetryPage after data arrives
     };
 
     // Initialize when DOM is ready

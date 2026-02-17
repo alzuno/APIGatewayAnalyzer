@@ -26,7 +26,7 @@ def index():
 # Flask-RESTX API setup
 api = Api(
     app,
-    version='3.3.0',
+    version='3.3.1',
     title='GPS Telemetry Analyzer API',
     description='API for analyzing GPS telemetry JSON logs from vehicle tracking systems',
     doc='/api/docs',
@@ -345,6 +345,21 @@ def process_log_data(logs_data, filename):
     devices_with_ignition = df.loc[ign_events | df['has_ignition'], 'imei'].unique()
     df.loc[df['imei'].isin(devices_with_ignition), 'has_ignition'] = True
 
+    # --- IGNITION QUALITY HELPER ---
+    def calc_ignition_quality(group):
+        ign_on = (group['event_type'] == 'Ignition On').sum()
+        ign_off = (group['event_type'] == 'Ignition Off').sum()
+        has_addon = group['has_ignition'].any()
+        if ign_on == 0 and ign_off == 0 and not has_addon:
+            return 0.0
+        if ign_on == 0 and ign_off == 0 and has_addon:
+            return 100.0
+        max_ign = max(ign_on, ign_off)
+        min_ign = min(ign_on, ign_off)
+        if abs(ign_on - ign_off) <= 1:
+            return 100.0
+        return (min_ign / max_ign) * 100 if max_ign > 0 else 0.0
+
     # --- ADVANCED METRICS PER IMEI ---
     def calculate_v2_metrics(group):
         group = group.sort_values('time')
@@ -426,7 +441,15 @@ def process_log_data(logs_data, filename):
             'RPM_Anormal_Count': (group['engineRPM'] > 8000).sum(),
             'Lat_Lng_Correct_Variation': "OK" if dist_change.sum() > 0 else "Static",
             'Driver_ID': str(driver_id),
-            'Frozen_Sensors': (("RPM " if rpm_frozen_penalty > 0 else "") + ("Temp" if temp_frozen_penalty > 0 else "")).strip() or "None"
+            'Frozen_Sensors': (("RPM " if rpm_frozen_penalty > 0 else "") + ("Temp" if temp_frozen_penalty > 0 else "")).strip() or "None",
+            'Radar_GPS': round(gps_score, 2),
+            'Radar_Ignition': round(calc_ignition_quality(group), 2),
+            'Radar_Delay': round((group['delay_seconds'] < 60).mean() * 100, 2),
+            'Radar_RPM': round(group['has_rpm'].mean() * 100, 2),
+            'Radar_Speed': round(group['has_speed'].mean() * 100, 2),
+            'Radar_Temp': round(group['has_temp'].mean() * 100, 2),
+            'Radar_Dist': round(group['has_dist'].mean() * 100, 2),
+            'Radar_Fuel': round(group['has_fuel_total'].mean() * 100, 2)
         })
 
     imei_metrics = df.groupby('imei').apply(calculate_v2_metrics).reset_index()
@@ -447,21 +470,6 @@ def process_log_data(logs_data, filename):
     scorecard = imei_metrics.merge(stats[['imei', 'Distancia_Recorrida_(KM)', 'KM_Inicial', 'KM_Final', 'Primer_Reporte', 'Ultimo_Reporte', 'Velocidad_Promedio_(KPH)', 'Velocidad_Maxima_(KPH)', 'RPM_Promedio', 'Nivel_Combustible_Promedio_%']], on='imei', how='left')
 
     # --- GLOBAL RADAR DATA ---
-    # Ignition quality: per device, measure on/off balance
-    def calc_ignition_quality(group):
-        ign_on = (group['event_type'] == 'Ignition On').sum()
-        ign_off = (group['event_type'] == 'Ignition Off').sum()
-        has_addon = group['has_ignition'].any()
-        if ign_on == 0 and ign_off == 0 and not has_addon:
-            return 0.0
-        if ign_on == 0 and ign_off == 0 and has_addon:
-            return 100.0
-        max_ign = max(ign_on, ign_off)
-        min_ign = min(ign_on, ign_off)
-        if abs(ign_on - ign_off) <= 1:
-            return 100.0
-        return (min_ign / max_ign) * 100 if max_ign > 0 else 0.0
-
     ignition_scores = df.groupby('imei').apply(calc_ignition_quality)
     ignition_avg = float(ignition_scores.mean()) if len(ignition_scores) > 0 else 0.0
 

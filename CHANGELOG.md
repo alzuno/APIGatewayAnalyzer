@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.1] - 2026-02-17
+### Fixed
+- **Radar chart per-device filtering**: Radar now shows per-device data quality values when a specific IMEI is selected, instead of always showing global averages. Added `Radar_*` fields to scorecard metrics.
+- **Map rendering**: Map now renders telemetry points from the paginated data instead of receiving an empty array.
+
 ## [3.3.0] - 2026-02-17
 ### Added
 - **Server-side pagination for raw telemetry data**: New `GET /api/result/<id>/telemetry` endpoint with `page`, `per_page`, and `imei` query parameters. The frontend now loads raw data on demand with pagination controls (page navigation, rows-per-page selector).

@@ -56,5 +56,23 @@ detects "unrealistic" static data that indicates sensor failure or bypass.
 
 ---
 
-## 4. Final Calculation
+## 4. Per-Device Radar Data (v3.3.1)
+Each scorecard row includes `Radar_*` fields for the data completeness radar chart, enabling per-device filtering:
+
+| Field | Description |
+| :--- | :--- |
+| `Radar_GPS` | % of records with `quality: 'Good'` |
+| `Radar_Ignition` | Ignition on/off balance quality (0-100%) |
+| `Radar_Delay` | % of records with delay < 60 seconds |
+| `Radar_RPM` | % of records with `engineRPM` present |
+| `Radar_Speed` | % of records with `vehicleSpeed` present |
+| `Radar_Temp` | % of records with `engineCoolantTemperature` present |
+| `Radar_Dist` | % of records with `totalDistance` present |
+| `Radar_Fuel` | % of records with `totalFuelUsed` present |
+
+When "All devices" is selected, the radar chart shows global averages. When a specific IMEI is selected, it uses these per-device values.
+
+---
+
+## 5. Final Calculation
 The total score is the sum of these weighted components (0-100), followed by the subtraction of forensic penalties. The result is clipped at 0.

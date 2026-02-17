@@ -21,18 +21,23 @@
         if (app.charts.eventChart) app.charts.eventChart.destroy();
 
         // Radar Chart (Data Completeness)
-        const dq = data.data_quality;
         const radarLabels = ['GPS', 'Ignition', 'Delay', 'RPM', 'Speed', 'Temp', 'Dist', 'Fuel'];
-        const radarData = [
-            dq.gps_validity || 0,
-            dq.ignition || 0,
-            dq.delay || 0,
-            dq.rpm || 0,
-            dq.speed || 0,
-            dq.temp || 0,
-            dq.dist || 0,
-            dq.fuel || 0
-        ];
+        let radarData;
+        if (imei && imei !== 'all') {
+            const sc = data.scorecard.find(r => r.imei === imei) || {};
+            radarData = [
+                sc.Radar_GPS || 0, sc.Radar_Ignition || 0, sc.Radar_Delay || 0,
+                sc.Radar_RPM || 0, sc.Radar_Speed || 0, sc.Radar_Temp || 0,
+                sc.Radar_Dist || 0, sc.Radar_Fuel || 0
+            ];
+        } else {
+            const dq = data.data_quality;
+            radarData = [
+                dq.gps_validity || 0, dq.ignition || 0, dq.delay || 0,
+                dq.rpm || 0, dq.speed || 0, dq.temp || 0,
+                dq.dist || 0, dq.fuel || 0
+            ];
+        }
 
         app.charts.scoreChart = new Chart(ctxScore, {
             type: 'radar',

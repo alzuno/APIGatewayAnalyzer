@@ -310,6 +310,10 @@
             app.state.rawPages = data.pages;
             app.state.rawTotal = data.total;
             app.tables.renderRaw(data.rows, data);
+            // Update map with telemetry points
+            if (data.rows && data.rows.length > 0) {
+                app.mapModule.render(data.rows);
+            }
         } catch (e) {
             console.error('Failed to load telemetry page', e);
         }
