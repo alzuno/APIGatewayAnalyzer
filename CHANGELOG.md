@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.2] - 2026-10-21
+### Fixed
+- **Log import with capitalized `Data` key**: Logs exported with `jsonPayload.Data` (capital D) failed with "No valid telemetry data found". Extraction now accepts both `data` and `Data`.
+
 ## [3.3.1] - 2026-02-17
 ### Fixed
 - **Radar chart per-device filtering**: Radar now shows per-device data quality values when a specific IMEI is selected, instead of always showing global averages. Added `Radar_*` fields to scorecard metrics.

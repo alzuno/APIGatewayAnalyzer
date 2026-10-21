@@ -28,7 +28,7 @@ A powerful web application for analyzing GPS telemetry JSON logs, visualizing de
     *   **Background Processing**: Large files (>10MB) process asynchronously with real-time progress.
     *   **API Documentation**: Swagger UI at `/api/docs`.
     *   **Logging**: Rotating file logs at `data/logs/app.log`.
-    *   **Test Suite**: 42 pytest tests for core functionality.
+    *   **Test Suite**: 43 pytest tests for core functionality.
 
 ## Key Capabilities
 
@@ -86,6 +86,7 @@ This repository includes a workflow in `.github/workflows/publish.yml` that auto
 ## 📜 Version History
 See [CHANGELOG.md](CHANGELOG.md) for details.
 
+*   **v3.3.2**: Fix import of logs using `jsonPayload.Data` (capital D).
 *   **v3.3.1**: Fix radar chart per-device filtering and map rendering.
 *   **v3.3.0**: Server-side paginated raw data, full telemetry storage, ignition radar quality scoring.
 *   **v3.2.2**: Fix ignition always showing 0% on data completeness radar.

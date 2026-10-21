@@ -18,7 +18,7 @@ python app.py                    # Flask dev server on port 8000
 
 # Run tests
 pip install -r requirements-dev.txt
-pytest -v                        # Run all 42 tests
+pytest -v                        # Run all 43 tests
 
 # Production deployment
 docker-compose -f docker-compose.prod.yml up -d
@@ -102,10 +102,10 @@ Falls back to Unicode escape decoding for malformed strings.
 
 ## Testing
 
-42 pytest tests in `tests/` directory:
+43 pytest tests in `tests/` directory:
 - `test_normalization.py` - Event type normalization (17 tests)
 - `test_sanitization.py` - JSON sanitization (14 tests)
-- `test_scoring.py` - Scoring and metrics (11 tests)
+- `test_scoring.py` - Scoring and metrics (12 tests)
 
 Run with: `pytest -v`
 

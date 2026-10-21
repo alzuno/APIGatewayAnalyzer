@@ -124,3 +124,15 @@ class TestScoreCalculation:
         scorecard = result["scorecard"][0]
         # All sample points have quality='Good'
         assert scorecard["GPS_Integrity"] > 0
+
+
+def test_process_log_data_accepts_capitalized_data_key():
+    """Exports with jsonPayload.Data (capital D) must be parsed too."""
+    import json
+    message = {"imei": "X1", "time": "2026-10-21T08:47:52Z", "lat": -34.6, "lng": -59.2,
+               "speed": 10, "addOns": {"mileage": 1.0}, "event": {"type": "HarshTurn"}}
+    info = json.dumps({"Arguments": json.dumps({"message": message})})
+    logs = [{"insertId": "1", "receiveTimestamp": "2026-10-21T07:48:05Z",
+             "jsonPayload": {"Data": {"AdditionalInformation": info}}}]
+    result = process_log_data(logs, "t.json")
+    assert result and "error" not in result

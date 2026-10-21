@@ -26,7 +26,7 @@ def index():
 # Flask-RESTX API setup
 api = Api(
     app,
-    version='3.3.1',
+    version='3.3.2',
     title='GPS Telemetry Analyzer API',
     description='API for analyzing GPS telemetry JSON logs from vehicle tracking systems',
     doc='/api/docs',
@@ -238,7 +238,10 @@ def process_log_data(logs_data, filename):
         try:
             receive_ts = log_entry.get('receiveTimestamp')
             json_payload = log_entry.get('jsonPayload', {})
-            data_obj = json_payload.get('data', {}) if isinstance(json_payload, dict) else {}
+            # Cloud Logging exports use either 'data' or 'Data' depending on the source
+            data_obj = {}
+            if isinstance(json_payload, dict):
+                data_obj = json_payload.get('data') or json_payload.get('Data') or {}
             additional_info_str = data_obj.get('AdditionalInformation')
             
             if not additional_info_str:
